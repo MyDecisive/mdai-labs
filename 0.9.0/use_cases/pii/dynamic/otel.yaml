@@ -85,7 +85,14 @@ spec:
           action: hash
 
     exporters:
-      debug: {}
+      # debug: {}
+
+      # debug/redact_pii_fields:
+      debug/hash_pii_fields:
+      # debug/scrub_pii_fields:
+        verbosity: detailed
+        sampling_initial: 5
+        sampling_thereafter: 200
 
     service:
       telemetry:
@@ -104,9 +111,13 @@ spec:
           receivers: [fluentforward]
           processors: [
             # attributes/redact_pii_fields,
-            # attributes/hash_pii_fields,
+            attributes/hash_pii_fields,
             # transform/scrub_pii_fields,
             memory_limiter,
             batch,
           ]
-          exporters: [debug]
+          exporters: [
+            # debug/redact_pii_fields
+            debug/hash_pii_fields
+            # debug/scrub_pii_fields
+          ]
