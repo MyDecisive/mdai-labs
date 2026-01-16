@@ -19,20 +19,17 @@ variables-apply:
 	@$(MAKE) variables-run DRY_RUN=0
 
 variables-run:
-	@jq -r --arg base "$(BASE_URL)" '\
-	  to_entries[] | \
-	  .key as $$name | \
-	  ( .value | del(.ottl) ) as $$body | \
-	  ($$base + "/" + $$name) as $$url | \
-	  "curl -sS -X POST -H '\''Content-Type: application/json'\'' -d " \
-	  + ($$body | tojson | @sh) + " " + ($$url | @sh) \
-	' "$(VARS_FILE)" | \
-	while IFS= read -r cmd; do \
+	@node scripts/emit-vars.cjs $(VARS_FILE) | \
+	while IFS= read -r item; do \
+	  name=$$(node -p 'JSON.parse(process.argv[1]).name' "$$item"); \
+	  payload=$$(node -p 'JSON.stringify(JSON.parse(process.argv[1]).payload)' "$$item"); \
+	  url="$(BASE_URL)/$$name"; \
 	  echo "--------------------------------------------------"; \
-	  echo "$$cmd"; \
+	  echo "POST $$url"; \
+	  echo "payload: $$payload"; \
 	  echo; \
 	  if [ "$(DRY_RUN)" -eq 0 ]; then \
-	    sh -c "$$cmd"; \
+	    curl -sS -X POST -H 'Content-Type: application/json' -d "$$payload" "$$url"; \
+	    echo; \
 	  fi; \
 	done
-

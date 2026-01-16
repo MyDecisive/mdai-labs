@@ -57,7 +57,7 @@ spec:
           - context: log
             statements:
               # Redact credit card numbers (keep last 4 digits)
-              - 'replace_pattern(attributes["cc"], "${env:CC_REGEX_OTTL}", "${env:CC_TEMPLATE}")'
+              - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
 
               # Redact email addresses (keep first 3 characters of username)
               # - replace_pattern(attributes["email"], ${env:EMAIL_REGEX}, ${env:EMAIL_TEMPLATE})
