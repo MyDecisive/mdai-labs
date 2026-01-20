@@ -60,19 +60,19 @@ spec:
               - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
 
               # Redact email addresses (keep first 3 characters of username)
-              # - replace_pattern(attributes["email"], ${env:EMAIL_REGEX}, ${env:EMAIL_TEMPLATE})
+              - 'replace_pattern(attributes["email"], "${env:EMAIL_REGEX}", "${env:EMAIL_TEMPLATE}")'
 
               # # Redact phone numbers (keep last 4 digits)
-              # - replace_pattern(attributes["phone"], ${env:PHONE_REGEX}, ${env:PHONE_TEMPLATE})
+              - 'replace_pattern(attributes["phone"], "${env:PHONE_REGEX}", "${env:PHONE_TEMPLATE}")'
 
               # # Redact address (keep first 4 digits)
-              # - replace_pattern(attributes["billing_address"], ${env:ADDRESS_REGEX}, ${env:ADDRESS_TEMPLATE})
+              - 'replace_pattern(attributes["billing_address"], "${env:ADDRESS_REGEX}", "${env:ADDRESS_TEMPLATE}")'
 
               # # Redact SSN (keep last 4 digits)
-              # - replace_pattern(attributes["ssn"], ${env:SSN_REGEX}, ${env:SSN_TEMPLATE})
+              - 'replace_pattern(attributes["ssn"], "${env:SSN_REGEX}", "${env:SSN_TEMPLATE}")'
 
               # # Redact Name (fully redact name)
-              # - replace_pattern(attributes["name"], ${env:NAME_REGEX}, ${env:NAME_TEMPLATE})
+              - 'replace_pattern(attributes["name"], "${env:NAME_REGEX}", "${env:NAME_TEMPLATE}")'
 
     exporters:
       debug/verbose:
