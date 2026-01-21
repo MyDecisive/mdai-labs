@@ -19,7 +19,7 @@ variables-apply:
 	@$(MAKE) variables-run DRY_RUN=0
 
 variables-run:
-	@node scripts/emit-vars.cjs $(VARS_FILE) | \
+	@@node scripts/emit-vars.cjs $(VARS_FILE) | \
 	while IFS= read -r item; do \
 	  name=$$(node -p 'JSON.parse(process.argv[1]).name' "$$item"); \
 	  payload=$$(node -p 'JSON.stringify(JSON.parse(process.argv[1]).payload)' "$$item"); \
@@ -27,9 +27,11 @@ variables-run:
 	  echo "--------------------------------------------------"; \
 	  echo "POST $$url"; \
 	  echo "payload: $$payload"; \
+	  printf '%s\n' "curl -sS -X POST -H 'Content-Type: application/json' -d '$$payload' '$$url'"; \
 	  echo; \
 	  if [ "$(DRY_RUN)" -eq 0 ]; then \
 	    curl -sS -X POST -H 'Content-Type: application/json' -d "$$payload" "$$url"; \
 	    echo; \
 	  fi; \
 	done
+

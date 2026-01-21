@@ -22,12 +22,21 @@ mdai use_case pii --version 0.9.0 --workflow dynamic
 kubectl port-forward -n mdai svc/mdai-gateway 8081:8081
 ```
 
+### Option 1: All variables at once, multi curl via make
+
 **Use the Makefile to update the manual variables.**
 
 ```bash
 make -C ./0.9.0/use_cases/pii variables-apply
 ```
 
+### Option 2: One variable at a time, one curl
+
+```bash
+curl -sS -X POST -H 'Content-Type: application/json' -d '{"data":"\\\\b(?:\\\\d[ -]*){11,15}(\\\\d{4})\\\\b"}' 'http://localhost:8081/variables/hub/mdaihub-pii/var/cc_regex'
+
+curl -sS -X POST -H 'Content-Type: application/json' -d '{"data":"****-****-****-$1"}' 'http://localhost:8081/variables/hub/mdaihub-pii/var/cc_template'
+```
 
 ----
 

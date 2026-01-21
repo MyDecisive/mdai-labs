@@ -39,17 +39,17 @@ spec:
         send_batch_max_size: 10000
         timeout: 13s
 
-      transform/redact_pii_fields:
-        error_mode: ignore
-        log_statements:
-          - context: log
-            statements:
-              - delete_matching_keys(attributes, "${env:FIELDS_TO_REDACT}")
+      # transform/redact_pii_fields:
+      #   error_mode: ignore
+      #   log_statements:
+      #     - context: log
+      #       statements:
+      #         - delete_matching_keys(attributes, "${env:FIELDS_TO_REDACT}")
 
-      attributes/hash_pii_fields:
-        actions:
-        - action: hash
-          pattern: '${env:FIELDS_TO_HASH}'
+      # attributes/hash_pii_fields:
+      #   actions:
+      #   - action: hash
+      #     pattern: '${env:FIELDS_TO_HASH}'
 
       transform/scrub_pii_fields:
         error_mode: propagate
@@ -60,19 +60,19 @@ spec:
               - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
 
               # Redact email addresses (keep first 3 characters of username)
-              - 'replace_pattern(attributes["email"], "${env:EMAIL_REGEX}", "${env:EMAIL_TEMPLATE}")'
+              # - 'replace_pattern(attributes["email"], "${env:EMAIL_REGEX}", "${env:EMAIL_TEMPLATE}")'
 
-              # # Redact phone numbers (keep last 4 digits)
-              - 'replace_pattern(attributes["phone"], "${env:PHONE_REGEX}", "${env:PHONE_TEMPLATE}")'
+              # # # Redact phone numbers (keep last 4 digits)
+              # - 'replace_pattern(attributes["phone"], "${env:PHONE_REGEX}", "${env:PHONE_TEMPLATE}")'
 
-              # # Redact address (keep first 4 digits)
-              - 'replace_pattern(attributes["billing_address"], "${env:ADDRESS_REGEX}", "${env:ADDRESS_TEMPLATE}")'
+              # # # Redact address (keep first 4 digits)
+              # - 'replace_pattern(attributes["billing_address"], "${env:ADDRESS_REGEX}", "${env:ADDRESS_TEMPLATE}")'
 
-              # # Redact SSN (keep last 4 digits)
-              - 'replace_pattern(attributes["ssn"], "${env:SSN_REGEX}", "${env:SSN_TEMPLATE}")'
+              # # # Redact SSN (keep last 4 digits)
+              # - 'replace_pattern(attributes["ssn"], "${env:SSN_REGEX}", "${env:SSN_TEMPLATE}")'
 
-              # # Redact Name (fully redact name)
-              - 'replace_pattern(attributes["name"], "${env:NAME_REGEX}", "${env:NAME_TEMPLATE}")'
+              # # # Redact Name (fully redact name)
+              # - 'replace_pattern(attributes["name"], "${env:NAME_REGEX}", "${env:NAME_TEMPLATE}")'
 
     exporters:
       debug/verbose:
