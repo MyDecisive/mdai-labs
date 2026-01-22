@@ -93,9 +93,13 @@ curl -sS -X POST \
 
 # This curl updates the replace template for when the above regex is matched
 # (ex. 1111-1111-1111-1234 will convert to "****-****-****-1234")
+# Note: this string can be anything
 curl -sS -X POST \
   -H 'Content-Type: application/json' \
+  # This only shows the last 4 digits in a cc number
   -d '{"data":"********-****-****-$1"}' \
+  # This replace the cc string with "**** REDACTED ****"
+  # -d '{"data":""**** REDACTED ****"}' \
   'http://localhost:8081/variables/hub/mdaihub-pii/var/cc_template'
 ```
 
