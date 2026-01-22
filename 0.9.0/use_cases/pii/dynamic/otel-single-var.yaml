@@ -39,18 +39,6 @@ spec:
         send_batch_max_size: 10000
         timeout: 13s
 
-      transform/redact_pii_fields:
-        error_mode: ignore
-        log_statements:
-          - context: log
-            statements:
-              - delete_matching_keys(attributes, "${env:FIELDS_TO_REDACT}")
-
-      attributes/hash_pii_fields:
-        actions:
-        - action: hash
-          pattern: '${env:FIELDS_TO_HASH}'
-
       transform/scrub_pii_fields:
         error_mode: propagate
         log_statements:
@@ -58,21 +46,6 @@ spec:
             statements:
               # Redact credit card numbers (keep last 4 digits)
               - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
-
-              # Redact email addresses (keep first 3 characters of username)
-              - 'replace_pattern(attributes["email"], "${env:EMAIL_REGEX}", "${env:EMAIL_TEMPLATE}")'
-
-              # # # Redact phone numbers (keep last 4 digits)
-              - 'replace_pattern(attributes["phone"], "${env:PHONE_REGEX}", "${env:PHONE_TEMPLATE}")'
-
-              # # # Redact address (keep first 4 digits)
-              - 'replace_pattern(attributes["billing_address"], "${env:ADDRESS_REGEX}", "${env:ADDRESS_TEMPLATE}")'
-
-              # # # Redact SSN (keep last 4 digits)
-              - 'replace_pattern(attributes["ssn"], "${env:SSN_REGEX}", "${env:SSN_TEMPLATE}")'
-
-              # # # Redact Name (fully redact name)
-              - 'replace_pattern(attributes["name"], "${env:NAME_REGEX}", "${env:NAME_TEMPLATE}")'
 
     exporters:
       debug/verbose:
@@ -96,13 +69,6 @@ spec:
         logs/customer_pipeline:
           receivers: [fluentforward]
           processors: [
-            # Uncomment these if you want to compare/contrast pii redaction strategies.
-            # NOTE: only do one strategy at a time during evaluation.
-            # Strategy: Full redact
-            # transform/redact_pii_fields,
-            # Strategy: Hash fields
-            # attributes/hash_pii_fields,
-            # Strategy: Scrub/replace values for pii fields
             transform/scrub_pii_fields,
             memory_limiter,
             batch,
