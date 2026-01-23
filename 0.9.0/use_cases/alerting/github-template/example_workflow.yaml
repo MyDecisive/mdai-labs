@@ -1,0 +1,19 @@
+# This is a GitHub Actions workflow file that defines a workflow named "Dispatch Test".
+
+name: Dispatch Test
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Environment
+        required: true
+        default: dev
+      build_id:
+        description: Build ID
+        required: true
+        default: local
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "env=${{ github.event.inputs.env }} build_id=${{ github.event.inputs.build_id }}"
