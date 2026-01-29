@@ -7,8 +7,12 @@ metadata:
   namespace: mdai
 spec:
   managementState: managed
-  image: otel/opentelemetry-collector-contrib:0.127.0
-  replicas: 1
+  image: public.ecr.aws/decisiveai/mdai-data-filtration-collector:0.1.0
+  args:
+    config: "http://mdai-operator-agent-service:8765/collectorConfig?hubName=mdaihub-ddf&namespace=mdai"
+    'feature-gates': "+extension.opampextension.RemoteRestarts"
+    # - --config=http://mdai-operator-agent-service:8765/collectorConfig?hubName=mdaihub-ddf&namespace=mdai&collectorName=gateway-collector-8129b2d8
+  replicas: 2
   resources:
     limits:
       memory: "256Mi"
@@ -27,6 +31,11 @@ spec:
     extensions:
       health_check:
         endpoint: "${env:MY_POD_IP}:13133"
+      opamp:
+        # instance_uid: "019469e3-e2e0-717a-8f56-0775d78a8731"
+        server:
+          ws:
+            endpoint: ws://mdai-operator-controller-manager-opamp.mdai.svc.cluster.local:4320/v1/opamp
 
     processors:
 
@@ -90,6 +99,7 @@ spec:
                     port: 8888
       extensions:
         - health_check
+        - opamp
       pipelines:
         logs/customer_pipeline:
           receivers: [ fluentforward ]
