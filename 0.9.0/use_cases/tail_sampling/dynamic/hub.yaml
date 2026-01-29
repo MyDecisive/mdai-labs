@@ -59,6 +59,30 @@ spec:
       keep_firing_for: 1m
 
   rules:
+    # LOUDEST SERVICES
+    - name: loudest_services_resolved
+      when:
+        alertName: loudest_services
+        status: resolved
+      then:
+        - removeFromSet:
+            set: loudest_service_list
+            value: ${trigger:payload.labels.service_name}
+    - name: loudest_services_firing
+      when:
+        alertName: loudest_services
+        status: firing
+      then:
+        - addToSet:
+            set: loudest_service_list
+            value: ${trigger:payload.labels.service_name}
+        - setVariable:
+            scalar: alerting_data_type
+            value: ${trigger:payload.labels.data_type}
+        - setVariable:
+            scalar: alerting_triggered
+            value: "true"
+
     # SUPER LOUD SERVICES
     - name: super_loud_services_resolved
       when:
