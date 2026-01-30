@@ -48,7 +48,7 @@ spec:
       for: 1m
       keep_firing_for: 1m
     - name: super_loud_services
-      expr: 'sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 1000 and sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) < 2000'
+      expr: '2000 > sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 1000'
       severity: warning
       for: 1m
       keep_firing_for: 1m
@@ -66,7 +66,7 @@ spec:
         status: resolved
       then:
         - removeFromSet:
-            set: loudest_service_list
+            set: loudest_services
             value: ${trigger:payload.labels.service_name}
     - name: loudest_services_firing
       when:
@@ -74,7 +74,7 @@ spec:
         status: firing
       then:
         - addToSet:
-            set: loudest_service_list
+            set: loudest_services
             value: ${trigger:payload.labels.service_name}
         - setVariable:
             scalar: alerting_data_type
