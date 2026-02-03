@@ -1,6 +1,4 @@
-# Threshold Based Eventing use case
-
-### Manual Install
+<!-- ### Manual Install
 
 ```bash
 kind create cluster --name mdai-labs
@@ -24,22 +22,23 @@ helm upgrade --install \
     --version 0.9.0 \
     --values values/overrides_0.9.0-partial.yaml \
     --cleanup-on-fail
-```
+``` -->
 
-## Intelligent Alerting setup
+# Intelligent Alerting
 
-#### Otel & Prometheus Scraper
+## Basic Set up - Connect your data
 
-```bash
-kubectl  apply -f ./0.9.0/use_cases/alerting/otel.yaml -n mdai
-```
+#### Apply Otel yaml
 
 ```bash
-kubectl  apply -f ./0.9.0/use_cases/alerting/scraper.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/basic/otel.yaml -n mdai
 ```
 
-Note: The `anomalous_error_rate` prometheus alert currently requires at least an hour's worth of data to trigger.  
-To test it sooner, temporarily replace the expression in [hub.yaml](/0.9.0/use_cases/alerting/hub.yaml#l15) with the lower-threshold expression below
+#### Apply Prometheus Metric Scraper - configures prometheus to scrape log counts from collector
+
+```bash
+kubectl  apply -f ./0.9.0/use_cases/alerting/basic/scraper.yaml -n mdai
+```
 
 #### Mock Data
 
@@ -47,11 +46,19 @@ To test it sooner, temporarily replace the expression in [hub.yaml](/0.9.0/use_c
 kubectl  apply -f ./mock-data/alerting.yaml
 ```
 
-Note: This is order dependant, otherwise fluentd will run into errors. Must run otel and prom scraper first.
+#### MDAI Hub
 
----
+```bash
+kubectl  apply -f ./0.9.0/use_cases/alerting/basic/hub.yaml -n mdai
+```
+
+<!-- End Basic -->
+
+### Static Set Up - Static Fields to Get Slack Alerts
 
 ### Create Secret
+
+##### Edit with your slack webhook. Follow [this guide](https://api.slack.com/messaging/webhooks) to get a webhook URL.
 
 ```bash
 kubectl -n mdai create secret generic slack-webhook-secret \
@@ -60,8 +67,76 @@ kubectl -n mdai create secret generic slack-webhook-secret \
 
 #### Apply MDAI Hub w/ Slack Webhook
 
+There are 2 different intelligent alert scenarios error rate alert (`anomalous_error_rate`) and attribute based alert (`unmasked_cc_detected`).
+
+There are 2 different alerting serivce options, Slack and Github. For this example, we will use Slack. _See [GH setup](/0.9.0/use_cases/alerting/README.md#apply-mdai-hub-w-github-action-workflow) below_
+
 ```bash
-kubectl  apply -f ./0.9.0/use_cases/alerting/hub.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/static/hub.yaml -n mdai
 ```
 
-#### GitHub Webhook Example on [hub.yaml](/0.9.0/use_cases/alerting/hub.yaml#l63)
+⚠️ _**Note**: The `anomalous_error_rate` prometheus alert currently requires **at least an hour's worth** of data to trigger._
+
+_To test it sooner, temporarily replace the expression in [hub.yaml](/0.9.0/use_cases/alerting/static/hub.yaml#l15) with the lower-threshold expression below_
+
+#### Apply Otel yaml
+
+Converts your string "level" field into OTEL severity fields. Add conditions to connectors for [severity level](0.9.0/use_cases/alerting/static/otel.yaml#l56) and [cc attribute ](0.9.0/use_cases/alerting/static/otel.yaml#l65).
+
+```bash
+kubectl  apply -f ./0.9.0/use_cases/static/basic/otel.yaml -n mdai
+```
+
+---
+
+#### Apply MDAI Hub w/ GitHub Action Workflow
+
+You can trigger a GitHub repository workflow that supports workflow_dispatch.
+
+- Use [example_workflow.yaml](/0.9.0/use_cases/alerting/github-template/example_workflow.yaml) to set this workflow up in your repo.
+
+- Use a fine-grained PAT (or classic PAT) with Read and Write access to Actions for the target repo.
+
+**Store it as a bearer value in a Secret (same namespace as the Hub CR):**
+
+```shell
+kubectl -n mdai create secret generic github-token \
+  --from-literal=authorization="Bearer github_pat_********_*********"
+```
+
+Update on `hub.yaml` with following:
+
+```yaml
+rules:
+- name: anomalous_error_rate
+      when:
+        alertName: anomalous_error_rate
+        status: firing
+      then:
+        - callWebhook:
+          # replace OWNER/REPO with your repo:
+          url: https://api.github.com/repos/OWNER/REPO/actions/workflows/deploy.yml/dispatches
+          method: POST
+          templateRef: jsonTemplate
+          payloadTemplate:
+            value: |-
+              {
+                "ref": "${template:ref:-main}",
+                "inputs": {
+                  "env": "${template:env:-prod}",
+                  "build_id": "${trigger:id}"
+                }
+              }
+          templateValues:
+            ref: main
+            env: uat
+          headersFrom:
+            Authorization:
+              secretKeyRef:
+                name: github-token
+                key: authorization
+          headers:
+            Accept: application/vnd.github+json
+            X-GitHub-Api-Version: "2022-11-28"
+            Content-Type: application/json
+```
