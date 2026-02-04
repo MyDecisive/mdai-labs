@@ -1,4 +1,4 @@
-<!-- ### Manual Install
+### Manual Install
 
 ```bash
 kind create cluster --name mdai-labs
@@ -22,11 +22,13 @@ helm upgrade --install \
     --version 0.9.0 \
     --values values/overrides_0.9.0-partial.yaml \
     --cleanup-on-fail
-``` -->
+```
+
+---
 
 # Intelligent Alerting
 
-## Basic Set up - Connect your data
+## Basic - Connect your data
 
 #### Apply Otel yaml
 
@@ -52,9 +54,7 @@ kubectl  apply -f ./mock-data/alerting.yaml
 kubectl  apply -f ./0.9.0/use_cases/alerting/basic/hub.yaml -n mdai
 ```
 
-<!-- End Basic -->
-
-### Static Set Up - Static Fields to Get Slack Alerts
+## Static - Static Fields to Get Slack Alerts
 
 ### Create Secret
 
@@ -87,9 +87,31 @@ Converts your string "level" field into OTEL severity fields. Add conditions to 
 kubectl  apply -f ./0.9.0/use_cases/static/basic/otel.yaml -n mdai
 ```
 
+#### Check Slack
+
+In the slack you configured, you should see new messages.
+
+Examples:
+
+```
+Unmasked credit card data detected in logs (cc attribute). Investigate immediately.
+Alert timestamp - 2026-02-02 19:35:22.124 +0000 UTC
+mdai_service - user-service
+status - firing
+alertname - unmasked_cc_detected
+
+Service was >2x expected error rate for five minutes compared to the last hour!
+Alert timestamp - 2026-02-02 19:37:22.124 +0000 UTC
+mdai_service - payment-service
+status - firing
+alertname - anomalous_error_rate
+```
+
+## Dynamic - Dynamic Variables triggering Alerts
+
 ---
 
-#### Apply MDAI Hub w/ GitHub Action Workflow
+### Apply MDAI Hub w/ GitHub Action Workflow
 
 You can trigger a GitHub repository workflow that supports workflow_dispatch.
 
