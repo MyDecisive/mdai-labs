@@ -1,0 +1,16 @@
+{
+  "address_regex": {
+    "ottl": true,
+    "data": "\\b(\\d{1,5})\\s([\\w\\s]+),\\s([\\w\\s]+),\\s([A-Z]{2})\\s(\\d{5})\\b"
+  },
+  "address_template": {
+    "data": "$1 **** REDACTED"
+  },
+  "cc_regex": {
+    "ottl": true,
+    "data": "\\b(?:\\d[ -]*){11,15}(\\d{4})\\b"
+  },
+  "cc_template": {
+    "data": "****-****-****-$1"
+  }
+}

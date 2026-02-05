@@ -75,21 +75,21 @@ There are 2 different alerting serivce options, Slack and Github. For this examp
 kubectl  apply -f ./0.9.0/use_cases/alerting/static/hub.yaml -n mdai
 ```
 
-⚠️ _**Note**: The `anomalous_error_rate` prometheus alert currently requires **at least an hour's worth** of data to trigger._
-
-_To test it sooner, temporarily replace the expression in [hub.yaml](/0.9.0/use_cases/alerting/static/hub.yaml#l15) with the lower-threshold expression below_
-
 #### Apply Otel yaml
 
 Converts your string "level" field into OTEL severity fields. Add conditions to connectors for [severity level](0.9.0/use_cases/alerting/static/otel.yaml#l56) and [cc attribute ](0.9.0/use_cases/alerting/static/otel.yaml#l65).
 
 ```bash
-kubectl  apply -f ./0.9.0/use_cases/static/basic/otel.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/static/otel.yaml -n mdai
 ```
 
 #### Check Slack
 
-In the slack you configured, you should see new messages.
+In the slack you configured, you should see new messages. Attribute will only take a moment and error rate will take 5 minutes.
+
+⚠️ _**Note**: The `anomalous_error_rate` prometheus alert currently requires **at least an hour's worth** of data to trigger._
+
+_To test it sooner, temporarily replace the expression in [hub.yaml](/0.9.0/use_cases/alerting/static/hub.yaml#l15) with the lower-threshold expression below_
 
 Examples:
 

@@ -24,7 +24,7 @@ spec:
       expr: 'sum(increase(cc_unmasked_logs_total[5m])) by (mdai_service) > 0'
       severity: critical
       for: 1m
-      keep_firing_for: 10m
+      keep_firing_for: 10m 
 
   rules:
     - name: anomalous_error_rate

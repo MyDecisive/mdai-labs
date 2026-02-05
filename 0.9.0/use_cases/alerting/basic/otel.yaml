@@ -66,10 +66,11 @@ spec:
       pipelines:
         logs/counts:
           receivers: [fluentforward]
-          processors: [memory_limiter, transform/severity, batch]
+          processors: [memory_limiter, batch]
           exporters: [count]
 
         metrics/log_counts:
           receivers: [count]
           processors: [deltatocumulative, batch]
           exporters: [prometheus]
+          
