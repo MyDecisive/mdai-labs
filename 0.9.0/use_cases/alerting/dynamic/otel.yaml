@@ -59,17 +59,17 @@ spec:
               - key: mdai_service
                 default_value: ""
 
-          cc_unmasked_logs_total:
-            description: Unmasked cc attribute in logs
-            # OTTL conditions are evaluated against the log record
-            conditions:
-              - attributes["cc"] != nil
-              - attributes["cc"] != ""
-              # Not masked like ****-****-****-1234
-              - not IsMatch(attributes["cc"], "^\\*\\*\\*\\*-\\*\\*\\*\\*-\\*\\*\\*\\*-\\d{4}$")
-            attributes:
-              - key: mdai_service
-                default_value: ""
+          # cc_unmasked_logs_total:
+          #   description: Unmasked cc attribute in logs
+          #   # OTTL conditions are evaluated against the log record
+          #   conditions:
+          #     - attributes["cc"] != nil
+          #     - attributes["cc"] != ""
+          #     # Not masked like ****-****-****-1234
+          #     - not IsMatch(attributes["cc"], "^\\*\\*\\*\\*-\\*\\*\\*\\*-\\*\\*\\*\\*-\\d{4}$")
+          #   attributes:
+          #     - key: mdai_service
+          #       default_value: ""
 
     exporters:
       prometheus:

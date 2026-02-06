@@ -85,7 +85,7 @@ kubectl  apply -f ./0.9.0/use_cases/alerting/static/otel.yaml -n mdai
 
 #### Check Slack
 
-In the slack you configured, you should see new messages. Attribute will only take a moment and error rate will take 5 minutes.
+In the slack you configured, you should see new messages. Attribute alert will only take a moment and error rate will take 5 minutes.
 
 ⚠️ _**Note**: The `anomalous_error_rate` prometheus alert currently requires **at least an hour's worth** of data to trigger._
 
@@ -108,6 +108,62 @@ alertname - anomalous_error_rate
 ```
 
 ## Dynamic - Dynamic Variables triggering Alerts
+
+### Single variable
+
+#### Apply Dynamic Otel yaml (Single Variable)
+
+```bash
+kubectl apply -f ./0.9.0/use_cases/alerting/dynamic/otel.yaml -n mdai
+```
+
+#### Apply Dynamic Hub yaml (Single Variable)
+
+```bash
+kubectl apply -f ./0.9.0/use_cases/alerting/dynamic/hub.yaml -n mdai
+```
+
+#### Stop the mock data to stop the alert for testing
+
+```bash
+kubectl scale deployment fluentd -n default --replicas=0
+```
+
+#### Port-forward the gateway
+
+```bash
+kubectl port-forward -n mdai svc/mdai-gateway 8081:8081
+```
+
+#### Set a message in the map
+
+```bash
+curl -sS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"data":{"payment-service":"Payment service is above expected error rate"}}' \
+  'http://localhost:8081/variables/hub/mdaihub-ia/var/alert_message_map'
+```
+
+##### Another to test:
+
+```bash
+curl -sS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"data":{"auth-service":"Auth is erroring—check login failures"}}' \
+  'http://localhost:8081/variables/hub/mdaihub-ia/var/alert_message_map'
+```
+
+#### Check your configmap (mdai-ai-variables) to make sure your variable was updated
+
+```bash
+kubectl describe -n mdai configmaps mdaihub-ia-variables
+```
+
+#### Reset mock data to run
+
+```bash
+kubectl scale deployment fluentd -n default --replicas=1
+```
 
 ---
 

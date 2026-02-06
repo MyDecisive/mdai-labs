@@ -1,16 +1,11 @@
 {
-  "address_regex": {
-    "ottl": true,
-    "data": "\\b(\\d{1,5})\\s([\\w\\s]+),\\s([\\w\\s]+),\\s([A-Z]{2})\\s(\\d{5})\\b"
+  "error_rate_threshold": {
+    "data": "50"
   },
-  "address_template": {
-    "data": "$1 **** REDACTED"
+  "attribute_name": {
+    "data": "cc_unmasked"
   },
-  "cc_regex": {
-    "ottl": true,
-    "data": "\\b(?:\\d[ -]*){11,15}(\\d{4})\\b"
-  },
-  "cc_template": {
-    "data": "****-****-****-$1"
+  "attribute_threshold": {
+    "data": "0"
   }
 }
