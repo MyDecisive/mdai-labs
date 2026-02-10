@@ -36,24 +36,37 @@ spec:
 
       deltatocumulative: {}
 
+    connectors:
+      count:
+        logs:
+          cc_unmasked_logs_total:
+            description: Unmasked cc attribute in logs
+            # OTTL conditions are evaluated against the log record
+            conditions:
+              - attributes["cc"] != nil
+              - attributes["cc"] != ""
+              # Not masked like ****-****-****-1234
+              - not IsMatch(attributes["cc"], "^\\*\\*\\*\\*-\\*\\*\\*\\*-\\*\\*\\*\\*-\\d{4}$")
+            attributes:
+              - key: mdai_service
+                default_value: ""
+
     exporters:
-      debug: {}
+      prometheus:
+        endpoint: "0.0.0.0:8899"
+        metric_expiration: 180m
+        resource_to_telemetry_conversion:
+          enabled: true
 
     service:
-      telemetry:
-        resource:
-          mdai-logstream: collector
-        metrics:
-          readers:
-            - pull:
-                exporter:
-                  prometheus:
-                    host: "0.0.0.0"
-                    port: 8888
       extensions: [health_check]
       pipelines:
-        logs/customer_pipeline:
+        logs/counts:
           receivers: [fluentforward]
           processors: [memory_limiter, batch]
-          exporters: [debug]
-          
+          exporters: [count]
+
+        metrics/log_counts:
+          receivers: [count]
+          processors: [deltatocumulative, batch]
+          exporters: [prometheus]

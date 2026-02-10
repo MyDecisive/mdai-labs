@@ -1,0 +1,85 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  labels:
+    mydecisive.ai/hub-name: mdaihub-aer
+  name: gateway
+  namespace: mdai
+spec:
+  managementState: managed
+  image: otel/opentelemetry-collector-contrib:0.118.0
+  replicas: 1
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+  config:
+    receivers:
+      fluentforward:
+        endpoint: "0.0.0.0:8006"
+
+    extensions:
+      health_check:
+        endpoint: "${env:MY_POD_IP}:13133"
+
+    processors:
+      memory_limiter:
+        check_interval: 23s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+
+      batch:
+        timeout: 10s
+
+      # Convert your string "level" field into OTEL severity fields
+      transform/severity:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+            # Variables potential here, user can set the severity
+            - set(severity_number, 17) where attributes["level"] == "ERROR"
+            - set(severity_number, 13) where attributes["level"] == "WARNING"
+            - set(severity_number, 9) where attributes["level"] == "INFO"
+            - set(severity_number, 5) where attributes["level"] == "DEBUG"
+            - set(severity_text, "ERROR") where attributes["level"] == "ERROR"
+            - set(severity_text, "WARNING") where attributes["level"] == "WARNING"
+            - set(severity_text, "INFO") where attributes["level"] == "INFO"
+            - set(severity_text, "DEBUG") where attributes["level"] == "DEBUG"
+
+      deltatocumulative: {}
+
+    connectors:
+      count:
+        logs:
+          error_logs_by_service_total:
+            description: Counted error logs
+            conditions:
+            # Pager duty type alert
+              - severity_number >= SEVERITY_NUMBER_ERROR
+            attributes:
+              - key: mdai_service
+                default_value: ""
+
+    exporters:
+      prometheus:
+        endpoint: "0.0.0.0:8899"
+        metric_expiration: 180m
+        resource_to_telemetry_conversion:
+          enabled: true
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        logs/counts:
+          receivers: [fluentforward]
+          processors: [memory_limiter, transform/severity, batch]
+          exporters: [count]
+
+        metrics/log_counts:
+          receivers: [count]
+          processors: [deltatocumulative, batch]
+          exporters: [prometheus]

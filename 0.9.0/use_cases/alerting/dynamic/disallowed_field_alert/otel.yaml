@@ -34,33 +34,13 @@ spec:
       batch:
         timeout: 10s
 
-      # Convert your string "level" field into OTEL severity fields
-      transform/severity:
-        error_mode: ignore
-        log_statements:
-          - context: log
-            statements:
-              - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["level"] == "ERROR"
-              - set(severity_number, SEVERITY_NUMBER_WARN)  where attributes["level"] == "WARN" or attributes["level"] == "WARNING"
-              - set(severity_number, SEVERITY_NUMBER_INFO)  where attributes["level"] == "INFO"
-              - set(severity_number, SEVERITY_NUMBER_DEBUG) where attributes["level"] == "DEBUG"
-              - set(severity_text, attributes["level"]) where attributes["level"] != nil
-
       deltatocumulative: {}
 
     connectors:
       count:
         logs:
-          error_logs_by_service_total:
-            description: Counted error logs
-            conditions:
-              - severity_number >= SEVERITY_NUMBER_ERROR
-            attributes:
-              - key: mdai_service
-                default_value: ""
-
-          cc_unmasked_logs_total:
-            description: Unmasked cc attribute in logs
+          pii_unmasked_logs_total:
+            description: Unmasked attribute in logs
             # OTTL conditions are evaluated against the log record
             conditions:
               - attributes["cc"] != nil
@@ -83,7 +63,7 @@ spec:
       pipelines:
         logs/counts:
           receivers: [fluentforward]
-          processors: [memory_limiter, transform/severity, batch]
+          processors: [memory_limiter, batch]
           exporters: [count]
 
         metrics/log_counts:

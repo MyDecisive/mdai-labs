@@ -2,7 +2,7 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   labels:
-    mydecisive.ai/hub-name: mdaihub-ia
+    mydecisive.ai/hub-name: mdaihub-aer
   name: gateway
   namespace: mdai
 spec:
@@ -40,6 +40,7 @@ spec:
         log_statements:
           - context: log
             statements:
+            # Severity numbers based on OpenTelemetry specification: https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber
               - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["level"] == "ERROR"
               - set(severity_number, SEVERITY_NUMBER_WARN)  where attributes["level"] == "WARN" or attributes["level"] == "WARNING"
               - set(severity_number, SEVERITY_NUMBER_INFO)  where attributes["level"] == "INFO"
@@ -58,18 +59,6 @@ spec:
             attributes:
               - key: mdai_service
                 default_value: ""
-
-          # cc_unmasked_logs_total:
-          #   description: Unmasked cc attribute in logs
-          #   # OTTL conditions are evaluated against the log record
-          #   conditions:
-          #     - attributes["cc"] != nil
-          #     - attributes["cc"] != ""
-          #     # Not masked like ****-****-****-1234
-          #     - not IsMatch(attributes["cc"], "^\\*\\*\\*\\*-\\*\\*\\*\\*-\\*\\*\\*\\*-\\d{4}$")
-          #   attributes:
-          #     - key: mdai_service
-          #       default_value: ""
 
     exporters:
       prometheus:

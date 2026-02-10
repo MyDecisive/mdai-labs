@@ -1,0 +1,74 @@
+# TODO: Configured list of fields to alert on. example: PII alerting list. Field detected.
+
+apiVersion: hub.mydecisive.ai/v1
+kind: MdaiHub
+metadata:
+  labels:
+    app.kubernetes.io/name: mdai-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: mdaihub-ia
+  namespace: mdai
+spec:
+  variables:
+    - key: cc_regex
+      type: manual
+      serializeAs:
+        - name: "CC_REGEX"
+      dataType: string
+      storageType: "mdai-valkey"
+  
+
+  prometheusAlerts:
+    - name: unmasked_cc_detected
+      expr: 'sum(increase(cc_unmasked_logs_total[5m])) by (mdai_service) > 0'
+      severity: critical
+      for: 1m
+      keep_firing_for: 10m
+
+  rules:
+    - name: unmasked_cc_detected
+      when:
+        alertName: unmasked_cc_detected
+        status: firing
+      then:
+        - callWebhook:
+            url:
+              valueFrom:
+                secretKeyRef: { name: slack-webhook-secret, key: url }
+            templateRef: slackAlertTemplate
+            templateValues:
+              labels_val_ref_primary: mdai_service
+              message: Unmasked credit card data detected in logs (cc attribute). Investigate immediately.
+              link_text: See alert in Prometheus
+              link_url: http://localhost:9090/alerts
+              
+        # GH integration example below      
+        # - callWebhook:
+        #   url:
+        #     valueFrom:
+        #       secretKeyRef:
+        #         name: github-webhook-url
+        #         key: GITHUB_WEBHOOK_URL
+        #   method: POST
+        #   templateRef: jsonTemplate
+        #   payloadTemplate:
+        #     value: |-
+        #       {
+        #         "ref": "${template:ref:-main}",
+        #         "inputs": {
+        #           "env": "${template:env:-prod}",
+        #           "build_id": "${trigger:id}"
+        #         }
+        #       }
+        #   templateValues:
+        #     ref: main
+        #     env: uat
+        #   headersFrom:
+        #     Authorization:
+        #       secretKeyRef:
+        #         name: github-token
+        #         key: authorization
+        #   headers:
+        #     Accept: application/vnd.github+json
+        #     X-GitHub-Api-Version: "2022-11-28"
+        #     Content-Type: application/json
