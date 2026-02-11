@@ -1,6 +1,6 @@
 # Manual Installation
 
-> Requires using [this branch](https://github.com/DecisiveAI/mdai-labs/tree/rlaw/ENG-564-error-log-alerting) of the mdai-hub
+> Requires using [this branch](https://github.com/mydecisive/mdai-labs/tree/rlaw/ENG-564-error-log-alerting) of the mdai-hub
 
 ## Step 1. Create kind cluster
 
@@ -21,7 +21,7 @@ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/do
 <details>
 
 ```sh
-helm upgrade --install mdai-hub oci://ghcr.io/decisiveai/mdai-hub
+helm upgrade --install mdai-hub oci://ghcr.io/mydecisive/mdai-hub
   --namespace mdai \
   --create-namespace \
   --version v0.8.6 \
@@ -38,7 +38,7 @@ helm upgrade --install mdai-hub oci://ghcr.io/decisiveai/mdai-hub
 <details>
 
 ```sh
-helm upgrade --install mdai-hub oci://ghcr.io/decisiveai/mdai-hub \
+helm upgrade --install mdai-hub oci://ghcr.io/mydecisive/mdai-hub \
   --version 0.8.6 \
   --namespace mdai \
   --create-namespace \
@@ -77,7 +77,7 @@ kubectl apply -f ./synthetics/loggen_services.yaml
 
 ## Step 5: Create + Install MDAI Hub
 
-> Get your Slack wehbook URL and update the `hub_ref.yaml` [here](https://github.com/DecisiveAI/mdai-labs/blob/00b05e9589d53b6cfac3361c4605b38f41b702a3/mdai/hub/0.x.x/hub_ref.yaml#L88-L109) to receive Slack messages. Follow [this guide](https://api.slack.com/messaging/webhooks) to get a webhook URL.
+> Get your Slack wehbook URL and update the `hub_ref.yaml` [here](https://github.com/mydecisive/mdai-labs/blob/00b05e9589d53b6cfac3361c4605b38f41b702a3/mdai/hub/0.x.x/hub_ref.yaml#L88-L109) to receive Slack messages. Follow [this guide](https://api.slack.com/messaging/webhooks) to get a webhook URL.
 
 ```sh
 kubectl apply -f ./mdai/hub/0.x.x/hub_ref.yaml -n mdai
@@ -114,4 +114,4 @@ Jump to our docs to see how to use mdai to:
 
 ## Appendix: how to make error conditions happen for testing
 
-* The `anomalous_error_rate` prometheus alert currently requires at least an hour's worth of data to trigger. Swap in [this version](https://github.com/DecisiveAI/mdai-labs/blob/e5c0309ad478cdd441c7463def5b0a9390cbb40b/mdai/hub/0.x.x/hub_ref.yaml#L66-L73) to guarantee alerts trigger that should call the webhook.
+* The `anomalous_error_rate` prometheus alert currently requires at least an hour's worth of data to trigger. Swap in [this version](https://github.com/mydecisive/mdai-labs/blob/e5c0309ad478cdd441c7463def5b0a9390cbb40b/mdai/hub/0.x.x/hub_ref.yaml#L66-L73) to guarantee alerts trigger that should call the webhook.

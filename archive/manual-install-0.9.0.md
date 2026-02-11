@@ -18,10 +18,10 @@ kubectl wait --for=condition=available --timeout=600s deployment --all -n cert-m
 
 <details>
 
-<summary>With chart repo locally</summary>  
+<summary>With chart repo locally</summary>
 
-* Checkout the desired version of [mdai-hub](https://github.com/DecisiveAI/mdai-hub)   
-* Update values.yaml if needed.  
+* Checkout the desired version of [mdai-hub](https://github.com/mydecisive/mdai-hub)
+* Update values.yaml if needed.
 * Run:
 
 ```sh
@@ -40,7 +40,7 @@ helm upgrade --install mdai ../mdai-hub \
 <summary>From remote</summary>
 
 ```sh
-  helm upgrade --install mdai oci://ghcr.io/decisiveai/mdai-hub \
+  helm upgrade --install mdai oci://ghcr.io/mydecisive/mdai-hub \
   --version 0.9.0-dev \
   --namespace mdai \
   --create-namespace \
@@ -106,15 +106,15 @@ Jump to our docs to see how to use mdai to:
 
 ## Appendix 1: How to make error conditions happen for testing
 
-The `anomalous_error_rate` prometheus alert currently requires at least an hour's worth of data to trigger.   
-To test it sooner, temporarily replace the expression in [hub_ref.yaml](https://github.com/DecisiveAI/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref.yaml#L75) with the lower-threshold expression below:
+The `anomalous_error_rate` prometheus alert currently requires at least an hour's worth of data to trigger.
+To test it sooner, temporarily replace the expression in [hub_ref.yaml](https://github.com/mydecisive/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref.yaml#L75) with the lower-threshold expression below:
 ```yaml
 expr: 'sum(increase(error_logs_by_service_total[5m])) by (mdai_service) > 0.1 * sum(avg_over_time(increase(error_logs_by_service_total[5m])[1h:])) by (mdai_service)'
 ```
 ## Appendix 2: How to set up webhook actions
 This appendix shows two common webhook patterns for MDAI Hub actions:
 1.	sending a message to Slack, and
-2.	triggering a GitHub Actions workflow_dispatch.  
+2.	triggering a GitHub Actions workflow_dispatch.
 
 Some examples of webhook action templates: `mdai/hub/0.9.0/configmaps/webhook-templates.yaml`
 #### Prereqs
@@ -123,21 +123,21 @@ Some examples of webhook action templates: `mdai/hub/0.9.0/configmaps/webhook-te
 * `kubectl` is pointed at the correct cluster/namespace.
 * Any Secrets referenced by actions must live in the same namespace as the Hub CR.
 ### Slack webhook setup
-Get your Slack wehbook URL. Follow [this guide](https://api.slack.com/messaging/webhooks) to get a webhook URL.  
-For security, store it in a Secret and reference it from the action.  
+Get your Slack wehbook URL. Follow [this guide](https://api.slack.com/messaging/webhooks) to get a webhook URL.
+For security, store it in a Secret and reference it from the action.
 #### 1) Create the Secret (replace the URL):
 ```shell
 kubectl -n mdai create secret generic slack-webhook-secret \
   --from-literal=url='https://hooks.slack.com/services/XXXXXXXXXXXXXXXXXXXXXXXX'
 ```
 #### 2) Reference it from your Hub CR action:
-Use examples from [hub_ref_webhook_actions.yaml](https://github.com/DecisiveAI/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref_webhook_actions.yaml#L137-L181) to add an action with built-in slack template to your hub custom resource `hub_ref.yaml`.   
+Use examples from [hub_ref_webhook_actions.yaml](https://github.com/mydecisive/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref_webhook_actions.yaml#L137-L181) to add an action with built-in slack template to your hub custom resource `hub_ref.yaml`.
 Re-apply your updated hub custom resource.
 ```sh
 kubectl apply -f ./mdai/hub/0.9.0/hub_ref.yaml -n mdai
 ```
 ### GitHub Action trigger (workflow_dispatch)
-You can trigger a repository workflow that supports workflow_dispatch.   
+You can trigger a repository workflow that supports workflow_dispatch.
 #### 1) Example workflow in your repo (e.g., .github/workflows/deploy.yml):
 ```yaml
 name: Dispatch Test
@@ -166,19 +166,19 @@ kubectl -n mdai create secret generic github-token \
   --from-literal=authorization="Bearer github_pat_********_*********"
 ```
 #### 3) Add action to your Hub CR to call GitHub’s dispatch API:
-* Use examples from [hub_ref_webhook_actions.yaml](https://github.com/DecisiveAI/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref_webhook_actions.yaml#L182-L206) to add an action which will trigger your GitHub webhook to your hub custom resource `hub_ref.yaml`.   
+* Use examples from [hub_ref_webhook_actions.yaml](https://github.com/mydecisive/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/hub_ref_webhook_actions.yaml#L182-L206) to add an action which will trigger your GitHub webhook to your hub custom resource `hub_ref.yaml`.
 * Update `OWNER/REPO` in repo URL with the one you created:
-`url: { value: https://api.github.com/repos/OWNER/REPO/actions/workflows/deploy.yml/dispatches }`   
+`url: { value: https://api.github.com/repos/OWNER/REPO/actions/workflows/deploy.yml/dispatches }`
 * Re-apply your updated hub custom resource.
 ```sh
 kubectl apply -f ./mdai/hub/0.9.0/hub_ref.yaml -n mdai
 ```
-Additional template examples could be found at [webhook-templates.yaml](https://github.com/DecisiveAI/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/configmaps/webhook-templates.yaml)
+Additional template examples could be found at [webhook-templates.yaml](https://github.com/mydecisive/mdai-labs/blob/01701c6b71f9ab478bec0157406f1cb520d8d54d/mdai/hub/0.9.0/configmaps/webhook-templates.yaml)
 
 
 ### Validation & best practices
-•	URL must be an absolute http(s) URL (whether provided inline via url.value or indirectly via urlFrom.secretKeyRef).  
-•	HTTP method must be one of the allowed values (use POST when payloadTemplate is present).  
-•	Do not combine a Slack-specific template (if your cluster provides one) with payloadTemplate. Use one or the other.   
-•	Keep tokens and webhooks only in Secrets; never commit them to Git.  
-•	Ensure Secrets and the Hub CR are in the same namespace.   
+•	URL must be an absolute http(s) URL (whether provided inline via url.value or indirectly via urlFrom.secretKeyRef).
+•	HTTP method must be one of the allowed values (use POST when payloadTemplate is present).
+•	Do not combine a Slack-specific template (if your cluster provides one) with payloadTemplate. Use one or the other.
+•	Keep tokens and webhooks only in Secrets; never commit them to Git.
+•	Ensure Secrets and the Hub CR are in the same namespace.

@@ -32,7 +32,7 @@ This page collects practical, copy‑pasteable examples for common workflows usi
 ## Installing with the OCI chart (default) + extras
 
 ```bash
-# Default OCI ref (oci://ghcr.io/decisiveai/mdai-hub), latest devel
+# Default OCI ref (oci://ghcr.io/mydecisive/mdai-hub), latest devel
 ./mdai.sh install_mdai
 
 # Pin a specific chart version (works with OCI)

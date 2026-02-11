@@ -25,7 +25,7 @@ HELM_REPO_URL="${HELM_REPO_URL:-https://charts.mydecisive.ai}"
 HELM_CHART_NAME="${HELM_CHART_NAME:-mdai-hub}"
 # Leave empty "" to omit --version; we’ll add --devel in that case
 HELM_CHART_VERSION="${HELM_CHART_VERSION:-}"
-HELM_CHART_REF="${HELM_CHART_REF:-oci://ghcr.io/decisiveai/mdai-hub}"
+HELM_CHART_REF="${HELM_CHART_REF:-oci://ghcr.io/mydecisive/mdai-hub}"
 HELM_RELEASE_NAME="${HELM_RELEASE_NAME:-mdai}"  # helm release name
 
 CERT_MANAGER_URL="${CERT_MANAGER_URL:-https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml}"
@@ -262,7 +262,7 @@ helm_install_or_upgrade_mdai() {
   # Decide chart source and optional repo flag (avoid arrays for Bash 3.2 + set -u)
   local chart_arg repo_part=""
   if [[ -n "$HELM_CHART_REF" ]]; then
-    chart_arg="${HELM_CHART_REF}"            # e.g., oci://ghcr.io/decisiveai/mdai-hub
+    chart_arg="${HELM_CHART_REF}"            # e.g., oci://ghcr.io/mydecisive/mdai-hub
   else
     chart_arg="${HELM_CHART_NAME}"           # e.g., mdai-hub
     repo_part="--repo ${HELM_REPO_URL}"      # e.g., https://charts.mydecisive.ai
@@ -901,7 +901,7 @@ GLOBAL FLAGS:
   --chart-namespace NS       Helm namespace (defaults to --namespace if omitted)
   --kube-context NAME        kubecontext for kubectl/helm
   --release-name NAME        Helm release name (default: mdai)
-  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/decisiveai/mdai-hub)
+  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/mydecisive/mdai-hub)
   --chart-repo URL           Helm repo URL (default: $HELM_REPO_URL)
   --chart-name NAME          Helm chart name (default: $HELM_CHART_NAME)
   --chart-version VER        Helm chart version (default: $HELM_CHART_VERSION)
