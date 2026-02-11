@@ -439,7 +439,7 @@ valkey:
   enabled: true
   image:
     registry: public.ecr.aws
-    repository: decisiveai/valkey
+    repository: mydecisive/valkey
     tag: 1.0.1
   auth:
     enabled: true

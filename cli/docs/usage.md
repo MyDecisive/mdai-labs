@@ -19,7 +19,7 @@ GLOBAL FLAGS:
   --chart-namespace NS       Helm namespace (defaults to --namespace if omitted)
   --kube-context NAME        kubecontext for kubectl/helm
   --release-name NAME        Helm release name (default: mdai)
-  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/decisiveai/mdai-hub)
+  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/mydecisive/mdai-hub)
   --chart-repo URL           Helm repo URL (default: $HELM_REPO_URL)
   --chart-name NAME          Helm chart name (default: $HELM_CHART_NAME)
   --chart-version VER        Helm chart version (default: $HELM_CHART_VERSION)
@@ -105,7 +105,7 @@ HISTORY
   --chart-namespace NS       Helm namespace (defaults to --namespace if omitted)
   --kube-context NAME        kubecontext for kubectl/helm
   --release-name NAME        Helm release name (default: mdai)
-  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/decisiveai/mdai-hub)
+  --chart-ref REF            Full chart ref (e.g., oci://ghcr.io/mydecisive/mdai-hub)
   --chart-repo URL           Helm repo URL (default: $HELM_REPO_URL)
   --chart-name NAME          Helm chart name (default: $HELM_CHART_NAME)
   --chart-version VER        Helm chart version (default: $HELM_CHART_VERSION)
@@ -195,7 +195,7 @@ HISTORY
 | HELM_REPO_URL | https://charts.mydecisive.ai |  |
 | HELM_CHART_NAME | mdai-hub |  |
 | HELM_CHART_VERSION |  |  |
-| HELM_CHART_REF | oci://ghcr.io/decisiveai/mdai-hub |  |
+| HELM_CHART_REF | oci://ghcr.io/mydecisive/mdai-hub |  |
 | HELM_RELEASE_NAME | mdai | helm release name |
 | CERT_MANAGER_URL | https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml |  |
 | KUBECTL_WAIT_TIMEOUT | 180s |  |
@@ -250,7 +250,7 @@ This page collects practical, copy‑pasteable examples for common workflows usi
 ## Installing with the OCI chart (default) + extras
 
 ```bash
-# Default OCI ref (oci://ghcr.io/decisiveai/mdai-hub), latest devel
+# Default OCI ref (oci://ghcr.io/mydecisive/mdai-hub), latest devel
 ./mdai.sh install_mdai
 
 # Pin a specific chart version (works with OCI)
@@ -349,7 +349,7 @@ Each use-case can define one or more **workflow** variants — typically:
 - `static` — fixed resources for reproducible replay
 - `dynamic` — self-adjusting, Smart Telemetry-driven
 
-Use the `--workflow` flag (or `-w`) to select the flavor.  
+Use the `--workflow` flag (or `-w`) to select the flavor.
 When omitted, `basic` is assumed.
 
 ```bash

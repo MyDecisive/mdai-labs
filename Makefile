@@ -2,7 +2,7 @@
 
 CLUSTER_NAME ?= mdai
 CERT_MANAGER_URL ?= https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml
-MDAI_REPO ?= https://decisiveai.github.io/mdai-helm-charts
+MDAI_REPO ?= https://mydecisive.github.io/mdai-helm-charts
 
 # Acceptable overrides from CLI: e.g., make hub-config HUB_CONFIG=somefile.yaml
 FLUENT ?= $(FLUENT_CONFIG)
