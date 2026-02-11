@@ -10,5 +10,5 @@ on:
 
 jobs:
   pr-title:
-    uses: DecisiveAI/changelogs/.github/workflows/reusable-semantic-pr-title.yaml@main
+    uses: MyDecisive/changelogs/.github/workflows/reusable-semantic-pr-title.yaml@main
     secrets: inherit # pass all secrets
