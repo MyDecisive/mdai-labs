@@ -70,7 +70,7 @@ kubectl  apply -f ./0.9.0/use_cases/alerting/static/disallowed_field_alert/otel.
 #### Apply Prometheus Metric Scraper - configures prometheus to scrape log counts from collector
 
 ```bash
-kubectl  apply -f ./0.9.0/use_cases/alerting/basic/scraper.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/static/scraper.yaml -n mdai
 ```
 
 #### Check Slack
@@ -98,8 +98,6 @@ alertname - anomalous_error_rate
 ```
 
 ## Dynamic - Dynamic Variables triggering Alerts
-
-### Single variable
 
 #### Apply Dynamic Otel yaml (Single Variable)
 
