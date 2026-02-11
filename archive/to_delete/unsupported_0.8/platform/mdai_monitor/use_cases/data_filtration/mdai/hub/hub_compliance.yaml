@@ -45,7 +45,7 @@ spec:
 
   observerResources:
     - name: observer-collector
-      image: public.ecr.aws/mydecisive/observer-collector:0.1
+      image: public.ecr.aws/decisiveai/observer-collector:0.1
       ownLogsOtlpEndpoint: mdaihub-compliance-observer-collector-service.mdai.svc.cluster.local:4318
       resources:
         limits:

@@ -30,7 +30,7 @@ spec:
             - 'resource.attributes["observer_direction"] != "exported"'
 
   observerResource:
-    image: public.ecr.aws/mydecisive/observer-collector:0.1
+    image: public.ecr.aws/decisiveai/observer-collector:0.1
     ownLogsOtlpEndpoint: hub-monitor-mdai-collector-service.mdai.svc.cluster.local:4318
     replicas: 2
     resources:
