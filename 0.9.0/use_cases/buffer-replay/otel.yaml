@@ -23,6 +23,18 @@ spec:
     receivers:
       fluentforward:
         endpoint: "0.0.0.0:8006"
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4327"
+          http:
+            endpoint: "0.0.0.0:4328"
+            # Since this collector needs to receive data from the web, enable cors for all origins
+            # `allowed_origins` can be refined for your deployment domain
+            cors:
+              allowed_origins:
+                - "http://*"
+                - "https://*"
       otlp/replay:
         protocols:
           grpc:
@@ -54,11 +66,25 @@ spec:
       debug/provider: {}
       debug/replayed: {}
       debug/saved_to_s3: {}
-      awss3:
+      awss3/logs:
         s3uploader:
           region: "us-east-2"
           s3_bucket: "mdai-labs"
-          s3_prefix: "replay-basic-logs"
+          s3_prefix: "replay-basic"
+          s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
+          file_prefix: replay-basic-
+      awss3/metrics:
+        s3uploader:
+          region: "us-east-2"
+          s3_bucket: "mdai-labs"
+          s3_prefix: "replay-basic"
+          s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
+          file_prefix: replay-basic-
+      awss3/traces:
+        s3uploader:
+          region: "us-east-2"
+          s3_bucket: "mdai-labs"
+          s3_prefix: "replay-basic"
           s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
           file_prefix: replay-basic-
 
@@ -92,14 +118,36 @@ spec:
           processors: [memory_limiter, batch]
           exporters:
             - debug/provider # simulates sending data to a provider directly from log source
-            - awss3
+            # - awss3/logs
         logs/s3_only:
           receivers: [routing]
           processors: [memory_limiter, batch]
           exporters:
-            - awss3
+            # - awss3/logs
             - debug/saved_to_s3
         logs/replay_pipeline:
+          receivers: [otlp/replay]
+          processors: [memory_limiter, batch]
+          exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
+
+        metrics/s3_only:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters:
+            # - awss3/metrics
+            - debug/saved_to_s3
+        metrics/replay_pipeline:
+          receivers: [otlp/replay]
+          processors: [memory_limiter, batch]
+          exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
+
+        traces/s3_only:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters:
+            # - awss3/traces
+            - debug/saved_to_s3
+        traces/replay_pipeline:
           receivers: [otlp/replay]
           processors: [memory_limiter, batch]
           exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
