@@ -1,0 +1,153 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  labels:
+    mydecisive.ai/hub-name: mdaihub-compliance
+  name: gateway
+  namespace: mdai
+spec:
+  managementState: managed
+  image: otel/opentelemetry-collector-contrib:0.127.0
+  replicas: 1
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+  envFrom:
+    - secretRef:
+        name: aws-credentials
+  config:
+    receivers:
+      fluentforward:
+        endpoint: "0.0.0.0:8006"
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4327"
+          http:
+            endpoint: "0.0.0.0:4328"
+            # Since this collector needs to receive data from the web, enable cors for all origins
+            # `allowed_origins` can be refined for your deployment domain
+            cors:
+              allowed_origins:
+                - "http://*"
+                - "https://*"
+      otlp/replay:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+            # Since this collector needs to receive data from the web, enable cors for all origins
+            # `allowed_origins` can be refined for your deployment domain
+            cors:
+              allowed_origins:
+                - "http://*"
+                - "https://*"
+
+    extensions:
+      health_check:
+        endpoint: "${env:MY_POD_IP}:13133"
+
+    processors:
+      memory_limiter:
+        check_interval: 23s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+      batch:
+        send_batch_size: 1000
+        send_batch_max_size: 10000
+        timeout: 13s
+
+    exporters:
+      debug/provider: {}
+      debug/replayed: {}
+      debug/saved_to_s3: {}
+      awss3/logs:
+        s3uploader:
+          region: "us-east-2"
+          s3_bucket: "mdai-labs"
+          s3_prefix: "replay-basic"
+          s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
+          file_prefix: replay-basic-
+      awss3/metrics:
+        s3uploader:
+          region: "us-east-2"
+          s3_bucket: "mdai-labs"
+          s3_prefix: "replay-basic"
+          s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
+          file_prefix: replay-basic-
+      awss3/traces:
+        s3uploader:
+          region: "us-east-2"
+          s3_bucket: "mdai-labs"
+          s3_prefix: "replay-basic"
+          s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H/minute=%M" # matches 'minute' partition in awss3 receiver and replay definition
+          file_prefix: replay-basic-
+
+    connectors:
+      routing:
+        default_pipelines: [logs/s3_only]
+        table:
+          - context: log
+            condition: severity_number >= SEVERITY_NUMBER_ERROR
+            pipelines: [logs/provider_and_s3]
+
+    service:
+      telemetry:
+        resource:
+          mdai-logstream: collector
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: "0.0.0.0"
+                    port: 8888
+      extensions: [health_check]
+      pipelines:
+        logs/input:
+          receivers: [fluentforward]
+          processors: []
+          exporters: [routing]
+        logs/provider_and_s3:
+          receivers: [routing]
+          processors: [memory_limiter, batch]
+          exporters:
+            - debug/provider # simulates sending data to a provider directly from log source
+            # - awss3/logs
+        logs/s3_only:
+          receivers: [routing]
+          processors: [memory_limiter, batch]
+          exporters:
+            # - awss3/logs
+            - debug/saved_to_s3
+        logs/replay_pipeline:
+          receivers: [otlp/replay]
+          processors: [memory_limiter, batch]
+          exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
+
+        metrics/s3_only:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters:
+            # - awss3/metrics
+            - debug/saved_to_s3
+        metrics/replay_pipeline:
+          receivers: [otlp/replay]
+          processors: [memory_limiter, batch]
+          exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
+
+        traces/s3_only:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters:
+            # - awss3/traces
+            - debug/saved_to_s3
+        traces/replay_pipeline:
+          receivers: [otlp/replay]
+          processors: [memory_limiter, batch]
+          exporters: [debug/replayed] # simlates sending replayed data to your downstream provider
