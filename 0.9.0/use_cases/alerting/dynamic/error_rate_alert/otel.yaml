@@ -1,0 +1,81 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  labels:
+    mydecisive.ai/hub-name: mdaihub-aer
+  name: gateway
+  namespace: mdai
+spec:
+  managementState: managed
+  image: otel/opentelemetry-collector-contrib:0.118.0
+  replicas: 1
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+  config:
+    receivers:
+      fluentforward:
+        endpoint: "0.0.0.0:8006"
+
+    extensions:
+      health_check:
+        endpoint: "${env:MY_POD_IP}:13133"
+
+    processors:
+      memory_limiter:
+        check_interval: 23s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+
+      batch:
+        timeout: 10s
+
+      # Convert your string "level" field into OTEL severity fields
+      transform/severity:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+            # Severity numbers based on OpenTelemetry specification: https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber
+              - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["level"] == "ERROR"
+              - set(severity_number, SEVERITY_NUMBER_WARN)  where attributes["level"] == "WARN" or attributes["level"] == "WARNING"
+              - set(severity_number, SEVERITY_NUMBER_INFO)  where attributes["level"] == "INFO"
+              - set(severity_number, SEVERITY_NUMBER_DEBUG) where attributes["level"] == "DEBUG"
+              - set(severity_text, attributes["level"]) where attributes["level"] != nil
+
+      deltatocumulative: {}
+
+    connectors:
+      count:
+        logs:
+          error_logs_by_service_total:
+            description: Counted error logs
+            conditions:
+              - severity_number >= SEVERITY_NUMBER_ERROR
+            attributes:
+              - key: mdai_service
+                default_value: ""
+
+    exporters:
+      prometheus:
+        endpoint: "0.0.0.0:8899"
+        metric_expiration: 180m
+        resource_to_telemetry_conversion:
+          enabled: true
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        logs/counts:
+          receivers: [fluentforward]
+          processors: [memory_limiter, transform/severity, batch]
+          exporters: [count]
+
+        metrics/log_counts:
+          receivers: [count]
+          processors: [deltatocumulative, batch]
+          exporters: [prometheus]
