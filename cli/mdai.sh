@@ -940,13 +940,21 @@ DATA GENERATION
 
 USE-CASES
   use-case <pii|compliance|tail-sampling>
-           [--version VER] [--hub PATH] [--otel PATH] [--apply FILE ...]
-                                 Apply a named bundle. If --hub/--otel not given, resolves:
-                                 ./use-cases/<case>[/<version>]/{hub.yaml,otel.yaml}
-                                 Extras can be added with repeatable --apply.
-                                 Examples:
-                                   use-case compliance --version 0.8.6
-                                   use-case pii --hub ./use-cases/pii/0.8.6/hub.yaml --otel ./use-cases/pii/0.8.6/otel.yaml
+            [--version VER]
+            [--workflow basic|static|dynamic]
+            [--option OPT]
+            [--hub PATH] [--otel PATH]
+            [--apply FILE ...]
+
+                    Apply a named bundle. If --hub/--otel not given, resolves:
+                    use-cases/<case>[/<version>]/{hub.yaml,otel.yaml}
+
+                    Extras can be added with repeatable --apply.
+
+                    Examples:
+                      use-case compliance --version 0.8.6
+                      use-case pii --hub ./use-cases/pii/0.8.6/hub.yaml --otel ./use-cases/pii/0.8.6/otel.yaml
+                      use-case compliance --workflow basic
 
 KUBECTL HELPERS
   apply FILE                     kubectl apply -f FILE -n $NAMESPACE
@@ -1142,6 +1150,7 @@ cmd_use_case() {
   local version="" DO_DELETE=false
   local hub_f="" otel_f=""
   local data_f=""
+  local uc_option=""
   local -a extras=()
 
   while [[ $# -gt 0 ]]; do
@@ -1166,6 +1175,14 @@ cmd_use_case() {
         WORKFLOW="$1"
         shift
         ;;
+      --option|-o)
+        if [[ $# -lt 2 ]]; then
+          echo "❌ --workflow requires a value (option1|option2)"; return 1
+        fi
+        shift
+        uc_option="${1:?}"
+        shift
+        ;;
       --debug-resolve)
         DEBUG_RESOLVE=1
         shift
@@ -1188,11 +1205,13 @@ cmd_use_case() {
   : "${MDAI_PATH:=./}"
   : "${OTEL_PATH:=./}"
 
-  resolve_uc_file() {
+    resolve_uc_file() {
     local want="$1"  # "hub" or "otel"
     local flavor="${WORKFLOW:-static}"
-    local casedir1="" casedir2=""
+    local opt="${uc_option:-}"
+    local fname="${want}.yaml"
 
+    local casedir1="" casedir2=""
     if [[ -n "$version" ]]; then
       casedir1="${USE_CASES_ROOT}/${version}/use-cases/${case_name}"
       casedir2="${USE_CASES_ROOT}/${version}/use_cases/${case_name}"
@@ -1200,10 +1219,22 @@ cmd_use_case() {
 
     local local1="./use-cases/${case_name}"
     local local2="./use_cases/${case_name}"
-    local fname="${want}.yaml"
 
-    # Build candidates: flavored paths first, then non-flavored, then fallbacks
-    local -a CANDIDATES=(
+    # Candidates are ordered most-specific -> least-specific.
+    # If --option is set, look in <workflow>/<option>/ first.
+    local -a CANDIDATES=()
+
+    if [[ -n "$opt" ]]; then
+      CANDIDATES+=(
+        "${casedir1}/${flavor}/${opt}/${fname}"
+        "${casedir2}/${flavor}/${opt}/${fname}"
+        "${local1}/${flavor}/${opt}/${fname}"
+        "${local2}/${flavor}/${opt}/${fname}"
+      )
+    fi
+
+    # Original behavior (no option subdir)
+    CANDIDATES+=(
       "${casedir1}/${flavor}/${fname}"
       "${casedir2}/${flavor}/${fname}"
       "${local1}/${flavor}/${fname}"
