@@ -47,28 +47,25 @@ spec:
           - key: address
             action: delete
 
-      # transform/scrub_pii_fields:
-      #   error_mode: propagate
-      #   log_statements:
-      #     - context: log
-      #       statements:
-      #         # Redact credit card numbers (keep last 4 digits)
-      #         - ${env:CC_REPLACE_FN}
+      transform/scrub_pii_fields:
+        error_mode: propagate
+        log_statements:
+          - context: log
+            statements:
+              # Redact email addresses (keep first 3 characters of username)
+              - replace_pattern(attributes["email"], "\\b([a-zA-Z0-9._%+-]{3})[a-zA-Z0-9._%+-]*@([a-zA-Z0-9]{2})[a-zA-Z0-9.-]*\\.(\\w{2,})\\b", "$1***@$2**.***")
 
-      #         # Redact email addresses (keep first 3 characters of username)
-      #         - replace_pattern(attributes["email"], "\\b([a-zA-Z0-9._%+-]{3})[a-zA-Z0-9._%+-]*@([a-zA-Z0-9]{2})[a-zA-Z0-9.-]*\\.(\\w{2,})\\b", "$1***@$2**.***")
+              # Redact phone numbers (keep last 4 digits)
+              - replace_pattern(attributes["phone"], "\\b(?:\\+?1[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?(\\d{4})\\b", "***-***-$1")
 
-      #         # Redact phone numbers (keep last 4 digits)
-      #         - replace_pattern(attributes["phone"], "\\b(?:\\+?1[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?(\\d{4})\\b", "***-***-$1")
+              # Redact address (keep first 4 digits)
+              - replace_pattern(attributes["billing_address"], "\\b(\\d{1,5})\\s([\\w\\s]+),\\s([\\w\\s]+),\\s([A-Z]{2})\\s(\\d{5})\\b", "$1 **** REDACTED")
 
-      #         # Redact address (keep first 4 digits)
-      #         - replace_pattern(attributes["billing_address"], "\\b(\\d{1,5})\\s([\\w\\s]+),\\s([\\w\\s]+),\\s([A-Z]{2})\\s(\\d{5})\\b", "$1 **** REDACTED")
+              # Redact SSN (keep last 4 digits)
+              - replace_pattern(attributes["ssn"], "\\b\\d{3}-\\d{2}-(\\d{4})\\b", "***-**-$1")
 
-      #         # Redact SSN (keep last 4 digits)
-      #         - replace_pattern(attributes["ssn"], "\\b\\d{3}-\\d{2}-(\\d{4})\\b", "***-**-$1")
-
-      #         # Redact Name (fully redact name)
-      #         - replace_pattern(attributes["name"], ".*", "***REDACTED****")
+              # Redact Name (fully redact name)
+              - replace_pattern(attributes["name"], ".*", "***REDACTED****")
 
       attributes/hash_pii_fields:
         actions:
@@ -83,7 +80,10 @@ spec:
 
 
     exporters:
-      debug: {}
+      debug/verbose:
+        verbosity: detailed
+        sampling_initial: 5
+        sampling_thereafter: 200
 
     service:
       telemetry:
@@ -101,7 +101,17 @@ spec:
         logs/customer_pipeline:
           receivers: [fluentforward]
           processors: [
+            # Uncomment these if you want to compare/contrast pii redaction strategies.
+            # NOTE: only do one strategy at a time during evaluation.
+            # Strategy: Full redact
+            # transform/redact_pii_fields,
+            # Strategy: Hash fields
+            # attributes/hash_pii_fields,
+            # Strategy: Scrub/replace values for pii fields
+            transform/scrub_pii_fields,
             memory_limiter,
             batch
           ]
-          exporters: [debug]
+          exporters: [
+            debug/verbose
+          ]
