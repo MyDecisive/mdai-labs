@@ -939,7 +939,7 @@ DATA GENERATION
   logs                           Alias for 'datagen'
 
 USE-CASES
-  use-case <pii|compliance|tail-sampling>
+  use-case <pii|tail-sampling|dynamic_filtration|alerting>
             [--version VER]
             [--workflow basic|static|dynamic]
             [--option OPT]
