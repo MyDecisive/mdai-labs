@@ -145,3 +145,41 @@ spec:
                 - "--status-code"
                 - "Ok"
           restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: service-e-low-volume
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: telemetrygen
+              image: public.ecr.aws/p3k6k6h3/telemetrygen:current
+              imagePullPolicy: IfNotPresent
+              args:
+                - "traces"
+                - "--otlp-endpoint"
+                - "trace-balancer-collector.mdai.svc.cluster.local:4317"
+                - "--otlp-insecure"
+                - "true"
+                - "--child-spans"
+                - "10"
+                - "--service"
+                - "mdai-test-service-E"
+                - "--span-duration"
+                - "123ms"
+                - "--traces"
+                - "1"
+                - "--telemetry-attributes"
+                - 'operation="low-volume-op"'
+                - "--status-code"
+                - "Ok"
+          restartPolicy: OnFailure
+---

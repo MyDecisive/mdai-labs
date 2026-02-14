@@ -8,25 +8,25 @@ metadata:
   namespace: mdai
 spec:
   variables:
-    - key: loud_service_list
+    - key: high_volume_service_list
       serializeAs:
-        - name: "LOUD_SERVICE_LIST"
+        - name: "HIGH_VOLUME_SERVICE_LIST"
           transformers:
             - type: join
               join:
                 delimiter: ","
       dataType: set
-    - key: loudest_services
+    - key: medium_volume_service_list
       serializeAs:
-        - name: "LOUDEST_SERVICES"
+        - name: "MEDIUM_VOLUME_SERVICE_LIST"
           transformers:
             - type: join
               join:
                 delimiter: ","
       dataType: set
-    - key: super_loud_service_list
+    - key: low_volume_service_list
       serializeAs:
-        - name: "SUPER_LOUD_SERVICE_LIST"
+        - name: "LOW_VOLUME_SERVICE_LIST"
           transformers:
             - type: join
               join:
@@ -42,39 +42,39 @@ spec:
         - name: "ALERT_TRIGGERED"
 
   prometheusAlerts:
-    - name: loudest_services
+    - name: high_volume_threshold
       expr: 'sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 2000'
       severity: warning
       for: 1m
       keep_firing_for: 1m
-    - name: super_loud_services
+    - name: medium_volume_threshold
       expr: '2000 > sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 1000'
       severity: warning
       for: 1m
       keep_firing_for: 1m
-    - name: loud_services
+    - name: low_volume_threshold
       expr: '1000 > sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 200'
       severity: warning
       for: 1m
       keep_firing_for: 1m
 
   rules:
-    # LOUDEST SERVICES
-    - name: loudest_services_resolved
+    # HIGHEST VOLUME SERVICES
+    - name: high_volume_threshold_resolved
       when:
-        alertName: loudest_services
+        alertName: high_volume_threshold
         status: resolved
       then:
         - removeFromSet:
-            set: loudest_services
+            set: high_volume_service_list
             value: ${trigger:payload.labels.service_name}
-    - name: loudest_services_firing
+    - name: high_volume_threshold_firing
       when:
-        alertName: loudest_services
+        alertName: high_volume_threshold
         status: firing
       then:
         - addToSet:
-            set: loudest_services
+            set: high_volume_service_list
             value: ${trigger:payload.labels.service_name}
         - setVariable:
             scalar: alerting_data_type
@@ -83,22 +83,22 @@ spec:
             scalar: alerting_triggered
             value: "true"
 
-    # SUPER LOUD SERVICES
-    - name: super_loud_services_resolved
+    # MEDIUM VOLUME SERVICES
+    - name: medium_volume_threshold_resolved
       when:
-        alertName: super_loud_services
+        alertName: medium_volume_threshold
         status: resolved
       then:
         - removeFromSet:
-            set: super_loud_service_list
+            set: medium_volume_service_list
             value: ${trigger:payload.labels.service_name}
-    - name: super_loud_services_firing
+    - name: medium_volume_threshold_firing
       when:
-        alertName: super_loud_services
+        alertName: medium_volume_threshold
         status: firing
       then:
         - addToSet:
-            set: super_loud_service_list
+            set: medium_volume_service_list
             value: ${trigger:payload.labels.service_name}
         - setVariable:
             scalar: alerting_data_type
@@ -107,22 +107,22 @@ spec:
             scalar: alerting_triggered
             value: "true"
 
-    # LOUD SERVICES
-    - name: loud_services_resolved
+    # LOW VOLUME SERVICES
+    - name: low_volume_threshold_resolved
       when:
-        alertName: loud_services
+        alertName: low_volume_threshold
         status: resolved
       then:
         - removeFromSet:
-            set: loud_service_list
+            set: low_volume_service_list
             value: ${trigger:payload.labels.service_name}
-    - name: loud_services_firing
+    - name: low_volume_threshold_firing
       when:
-        alertName: loud_services
+        alertName: low_volume_threshold
         status: firing
       then:
         - addToSet:
-            set: loud_service_list
+            set: low_volume_service_list
             value: ${trigger:payload.labels.service_name}
         - setVariable:
             scalar: alerting_data_type

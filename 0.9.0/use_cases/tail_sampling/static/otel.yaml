@@ -149,8 +149,7 @@ spec:
         timeout: 10s
 
     exporters:
-      debug/to_vendor:
-        verbosity: detailed
+      debug/to_vendor: {}
 
     service:
       telemetry:
