@@ -1,0 +1,27 @@
+apiVersion: hub.mydecisive.ai/v1
+kind: MdaiHub
+metadata:
+  labels:
+    app.kubernetes.io/name: mdai-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: mdaihub-pii
+  namespace: mdai
+spec:
+  variables:
+    # regex patterns
+
+    - key: cc_regex
+      type: manual
+      serializeAs:
+        - name: "CC_REGEX"
+      dataType: string
+      storageType: "mdai-valkey"
+
+    # replace templates
+
+    - key: cc_template
+      type: manual
+      serializeAs:
+        - name: "CC_TEMPLATE"
+      dataType: string
+      storageType: "mdai-valkey"

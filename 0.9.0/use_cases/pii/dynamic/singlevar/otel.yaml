@@ -1,0 +1,78 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  labels:
+    mydecisive.ai/hub-name: mdaihub-pii
+  name: gateway
+  namespace: mdai
+spec:
+  managementState: managed
+  image: otel/opentelemetry-collector-contrib:0.127.0
+  replicas: 1
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+  envFrom:
+    - configMapRef:
+        name: mdaihub-pii-variables
+  config:
+    receivers:
+      fluentforward:
+        endpoint: "${env:MY_POD_IP}:8006"
+
+    extensions:
+      health_check:
+        endpoint: "${env:MY_POD_IP}:13133"
+
+    processors:
+      memory_limiter:
+        check_interval: 23s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+
+      batch:
+        send_batch_size: 1000
+        send_batch_max_size: 10000
+        timeout: 13s
+
+      transform/scrub_pii_fields:
+        error_mode: propagate
+        log_statements:
+          - context: log
+            statements:
+              # Redact credit card numbers (keep last 4 digits)
+              - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
+
+    exporters:
+      debug/verbose:
+        verbosity: detailed
+        sampling_initial: 5
+        sampling_thereafter: 200
+
+    service:
+      telemetry:
+        resource:
+          mdai-logstream: collector
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: "0.0.0.0"
+                    port: 8888
+      extensions: [health_check]
+      pipelines:
+        logs/customer_pipeline:
+          receivers: [fluentforward]
+          processors: [
+            transform/scrub_pii_fields,
+            memory_limiter,
+            batch,
+          ]
+          exporters: [
+            debug/verbose
+          ]

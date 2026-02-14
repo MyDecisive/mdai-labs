@@ -16,10 +16,13 @@ spec:
     requests:
       memory: "128Mi"
       cpu: "100m"
+  envFrom:
+    - configMapRef:
+        name: mdaihub-pii-variables
   config:
     receivers:
       fluentforward:
-        endpoint: "0.0.0.0:8006"
+        endpoint: "${env:MY_POD_IP}:8006"
 
     extensions:
       health_check:
@@ -36,48 +39,40 @@ spec:
         send_batch_max_size: 10000
         timeout: 13s
 
-      attributes/redact_pii_fields:
+      transform/redact_pii_fields:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - delete_matching_keys(attributes, "${env:FIELDS_TO_REDACT}")
+
+      attributes/hash_pii_fields:
         actions:
-          - key: email
-            action: delete
-          - key: phone
-            action: delete
-          - key: ssn
-            action: delete
-          - key: address
-            action: delete
+        - action: hash
+          pattern: '${env:FIELDS_TO_HASH}'
 
       transform/scrub_pii_fields:
         error_mode: propagate
         log_statements:
           - context: log
             statements:
+              # Redact credit card numbers (keep last 4 digits)
+              - 'replace_pattern(attributes["cc"], "${env:CC_REGEX}", "${env:CC_TEMPLATE}")'
+
               # Redact email addresses (keep first 3 characters of username)
-              - replace_pattern(attributes["email"], "\\b([a-zA-Z0-9._%+-]{3})[a-zA-Z0-9._%+-]*@([a-zA-Z0-9]{2})[a-zA-Z0-9.-]*\\.(\\w{2,})\\b", "$1***@$2**.***")
+              - 'replace_pattern(attributes["email"], "${env:EMAIL_REGEX}", "${env:EMAIL_TEMPLATE}")'
 
-              # Redact phone numbers (keep last 4 digits)
-              - replace_pattern(attributes["phone"], "\\b(?:\\+?1[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?(\\d{4})\\b", "***-***-$1")
+              # # # Redact phone numbers (keep last 4 digits)
+              - 'replace_pattern(attributes["phone"], "${env:PHONE_REGEX}", "${env:PHONE_TEMPLATE}")'
 
-              # Redact address (keep first 4 digits)
-              - replace_pattern(attributes["billing_address"], "\\b(\\d{1,5})\\s([\\w\\s]+),\\s([\\w\\s]+),\\s([A-Z]{2})\\s(\\d{5})\\b", "$1 **** REDACTED")
+              # # # Redact address (keep first 4 digits)
+              - 'replace_pattern(attributes["billing_address"], "${env:ADDRESS_REGEX}", "${env:ADDRESS_TEMPLATE}")'
 
-              # Redact SSN (keep last 4 digits)
-              - replace_pattern(attributes["ssn"], "\\b\\d{3}-\\d{2}-(\\d{4})\\b", "***-**-$1")
+              # # # Redact SSN (keep last 4 digits)
+              - 'replace_pattern(attributes["ssn"], "${env:SSN_REGEX}", "${env:SSN_TEMPLATE}")'
 
-              # Redact Name (fully redact name)
-              - replace_pattern(attributes["name"], ".*", "***REDACTED****")
-
-      attributes/hash_pii_fields:
-        actions:
-          - key: email
-            action: hash
-          - key: phone
-            action: hash
-          - key: ssn
-            action: hash
-          - key: address
-            action: hash
-
+              # # # Redact Name (fully redact name)
+              - 'replace_pattern(attributes["name"], "${env:NAME_REGEX}", "${env:NAME_TEMPLATE}")'
 
     exporters:
       debug/verbose:
@@ -110,7 +105,7 @@ spec:
             # Strategy: Scrub/replace values for pii fields
             transform/scrub_pii_fields,
             memory_limiter,
-            batch
+            batch,
           ]
           exporters: [
             debug/verbose
