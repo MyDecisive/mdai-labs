@@ -4,10 +4,10 @@ Create an OTLP shim surrounding an incoming "datadog" payload.
 
 ## Install mdai
 
-In your terminal, go to your local path where your `mdai-labs` repo exits.
+In your terminal, go to your local path where your `mdai-labs` repo exists.
 
 ```bash
-mdai install --version 0.9.0 -f values/overrides_0.9.0.yaml
+mdai install --version 0.9.0 -f values/overrides_0.9.0-partial.yaml
 ```
 
 ## Install Dynamic data filtration lab resources
