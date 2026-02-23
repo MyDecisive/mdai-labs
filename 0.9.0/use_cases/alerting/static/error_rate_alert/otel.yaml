@@ -34,19 +34,6 @@ spec:
       batch:
         timeout: 10s
 
-      # Convert your string "level" field into OTEL severity fields
-      transform/severity:
-        error_mode: ignore
-        log_statements:
-          - context: log
-            statements:
-            # Severity numbers based on OpenTelemetry specification: https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber
-              - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["level"] == "ERROR"
-              - set(severity_number, SEVERITY_NUMBER_WARN)  where attributes["level"] == "WARN" or attributes["level"] == "WARNING"
-              - set(severity_number, SEVERITY_NUMBER_INFO)  where attributes["level"] == "INFO"
-              - set(severity_number, SEVERITY_NUMBER_DEBUG) where attributes["level"] == "DEBUG"
-              - set(severity_text, attributes["level"]) where attributes["level"] != nil
-
       deltatocumulative: {}
 
     connectors:
@@ -55,7 +42,7 @@ spec:
           error_logs_by_service_total:
             description: Counted error logs
             conditions:
-              - severity_number >= SEVERITY_NUMBER_ERROR
+              - 'attributes["level"] == "ERROR" and attributes["mdai_service"] != nil and attributes["mdai_service"] != ""'
             attributes:
               - key: mdai_service
                 default_value: ""
@@ -72,7 +59,7 @@ spec:
       pipelines:
         logs/counts:
           receivers: [fluentforward]
-          processors: [memory_limiter, transform/severity, batch]
+          processors: [memory_limiter, batch]
           exporters: [count]
 
         metrics/log_counts:

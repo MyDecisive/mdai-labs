@@ -99,18 +99,40 @@ alertname - anomalous_error_rate
 
 ## Dynamic - Dynamic Variables triggering Alerts
 
-#### Apply Dynamic Otel yaml (Single Variable)
+##### Error Rate Alert
 
 ```bash
-kubectl apply -f ./0.9.0/use_cases/alerting/dynamic/otel.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/dynamic/error_rate_alert/hub.yaml -n mdai
 ```
 
-Note: If you skipped ahead, be sure to apply [Prometheus Scraper](#apply-prometheus-metric-scraper---configures-prometheus-to-scrape-log-counts-from-collector)
-
-#### Apply Dynamic Hub yaml (Single Variable)
+##### Disallowed Field Alerting
 
 ```bash
-kubectl apply -f ./0.9.0/use_cases/alerting/dynamic/hub.yaml -n mdai
+kubectl  apply -f ./0.9.0/use_cases/alerting/dynamic/disallowed_field_alert/hub.yaml -n mdai
+```
+
+#### Apply Otel yaml
+
+##### Error Rate Alert
+
+Converts your string "level" field into OTEL severity fields. Add conditions to connectors for severity level.
+
+```bash
+kubectl  apply -f ./0.9.0/use_cases/alerting/dynamic/error_rate_alert/otel.yaml -n mdai
+```
+
+##### Disallowed Field Alerting
+
+Add conditions to connectors for cc attribute.
+
+```bash
+kubectl  apply -f ./0.9.0/use_cases/alerting/dynamic/disallowed_field_alert/otel.yaml -n mdai
+```
+
+#### Apply Prometheus Metric Scraper - configures prometheus to scrape log counts from collector
+
+```bash
+kubectl  apply -f ./0.9.0/use_cases/alerting/static/scraper.yaml -n mdai
 ```
 
 #### Stop the mock data to stop the alert for testing
@@ -127,28 +149,48 @@ kubectl scale deployment fluentd -n default --replicas=0
 kubectl port-forward -n mdai svc/mdai-gateway 8081:8081
 ```
 
-#### Set a message in the map
+#### Set up service tiers
+
+##### Set Tier Lists (required)
+
+These tier variables are `dataType: set`. The gateway expects a **list** payload. Each request replaces the full list for that tier.
 
 ```bash
+# Tier 1 (set the full list)
 curl -sS -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"data":{"payment-service":"Payment service is above expected error rate"}}' \
-  'http://localhost:8081/variables/hub/mdaihub-ia/var/alert_message_map'
-```
+  -d '{"data":["payment-service","auth-service"]}' \
+  'http://localhost:8081/variables/hub/mdaihub-aer/var/tier_1_service_list'
 
-##### Another to test:
-
-```bash
+# Tier 2–3 (set the full list)
 curl -sS -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"data":{"auth-service":"Auth is erroring—check login failures"}}' \
-  'http://localhost:8081/variables/hub/mdaihub-ia/var/alert_message_map'
+  -d '{"data":["checkout-service","inventory-service"]}' \
+  'http://localhost:8081/variables/hub/mdaihub-aer/var/tier_2_3_service_list'
+
+# Tier 4–7 (set the full list)
+curl -sS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"data":["catalog-service","notification-service","shipping-service"]}' \
+  'http://localhost:8081/variables/hub/mdaihub-aer/var/tier_4_7_service_list'
 ```
 
-#### Check your configmap (mdai-ai-variables) to make sure your variable was updated
+##### Remove a Service (by overwriting the list)
+
+There is no `remove` operation for set variables via this gateway endpoint. To remove a service, POST the list again without that service.
 
 ```bash
-kubectl describe -n mdai configmaps mdaihub-ia-variables
+# Remove auth-service from Tier 1 by setting Tier 1 to only payment-service
+curl -sS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"data":["payment-service"]}' \
+  'http://localhost:8081/variables/hub/mdaihub-aer/var/tier_1_service_list'
+```
+
+#### Check your configmap (mdaihub-aer-variables) to make sure your variable was updated
+
+```bash
+kubectl describe -n mdai configmaps mdaihub-aer-variables
 ```
 
 #### Reset mock data to run
