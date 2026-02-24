@@ -990,6 +990,7 @@ EOF
 # Consumes known globals from CMD_ARGS and leaves only real subcommand args.
 parse_trailing_globals() {
   local out=()
+  local had_out=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -f)
@@ -1015,11 +1016,15 @@ parse_trailing_globals() {
       --dry-run)           DRY_RUN=true; shift ;;
       --verbose)           VERBOSE=true; shift ;;
       -h|--help)           usage; exit 0 ;;
-      --)                  shift; while [[ $# -gt 0 ]]; do out+=("$1"); shift; done; break ;;
-      *)                   out+=("$1"); shift ;;
+      --)                  shift; while [[ $# -gt 0 ]]; do out+=("$1"); had_out=true; shift; done; break ;;
+      *)                   out+=("$1"); had_out=true; shift ;;
     esac
   done
-  CMD_ARGS=("${out[@]}")
+  # Bash 3.2 + `set -u` can treat an empty array expansion as unbound.
+  CMD_ARGS=()
+  if [[ "$had_out" == true ]]; then
+    CMD_ARGS=("${out[@]}")
+  fi
 }
 
 parse_globals() {
