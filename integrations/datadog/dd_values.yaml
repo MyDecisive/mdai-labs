@@ -43,6 +43,8 @@ dogstatsd:
 
 apm_config:
   enabled: true
+  apm_dd_url: http://gateway-collector.mdai.svc.cluster.local:8126
+
 
 agents:
   containers:

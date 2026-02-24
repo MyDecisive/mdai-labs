@@ -1,7 +1,5 @@
 # DD Integration (logs) Local Example
 
-Create an OTLP shim surrounding an incoming "datadog" payload.
-
 ## Install mdai
 
 In your terminal, go to your local path where your `mdai-labs` repo exists.
@@ -17,13 +15,13 @@ Add your Datadog API Key as a secret in k8s
 ```bash
 # Make sure the namespace is the same namespace your collector is in.
 # Alternatively, you can create a secret per namespace where resources require the secret.
-kubectl -n your_namespace create secret generic datadog-secret --from-literal api-key=*****dd_api_key*****
+kubectl -n <your_namespace> create secret generic datadog-secret --from-literal api-key=*****dd_api_key*****
 ```
 
 Install the mdai resources
 
 ```bash
-mdai use_case data_filtration --version 0.9.0 --workflow static --otel ./integrations/datadog/otel.yaml
+mdai use_case data_filtration --version 0.9.0 --workflow dynamic --otel ./integrations/datadog/otel.yaml
 ```
 
 ## Add DD Agent
@@ -38,5 +36,5 @@ kubectl -n datadog create secret generic datadog-secret --from-literal api-key=*
 If you ever need to, you can uninstall the datadog agent using the following command...
 
 ```bash
-helm uninstall datadog-agent
+helm uninstall datadog-agent -n datadog
 ```
