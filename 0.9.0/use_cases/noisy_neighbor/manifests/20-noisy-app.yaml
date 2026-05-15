@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noisy-app
+  namespace: noisy-neighbor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noisy-app
+  template:
+    metadata:
+      labels:
+        app: noisy-app
+    spec:
+      containers:
+        - name: app
+          image: noisy-app:0.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PG_DSN
+              value: postgres://app:app@postgres.noisy-neighbor.svc.cluster.local:5432/app
+            - name: POOL_MAX_PER_TENANT
+              value: "30"
+            - name: ERROR_INJECT_PROB
+              value: "0.10"
+            - name: OTEL_SERVICE_NAME
+              value: noisy-app
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://trace-balancer-collector.mdai.svc.cluster.local:4317
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=noisy-neighbor
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: {cpu: "100m", memory: "128Mi"}
+            limits: {cpu: "500m", memory: "256Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noisy-app
+  namespace: noisy-neighbor
+  labels:
+    app: noisy-app
+spec:
+  selector:
+    app: noisy-app
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: noisy-app
+  namespace: mdai
+  labels:
+    release: mdai
+spec:
+  namespaceSelector:
+    matchNames: [noisy-neighbor]
+  selector:
+    matchLabels:
+      app: noisy-app
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 10s

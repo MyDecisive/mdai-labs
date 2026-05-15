@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loadgen-config
+  namespace: noisy-neighbor
+data:
+  config.json: |
+    {
+      "target": "http://noisy-app.noisy-neighbor.svc.cluster.local:8080/work?cost=4",
+      "tenants": {
+        "tenant-a": 5,
+        "tenant-b": 5,
+        "tenant-c": 5,
+        "noisy-1":  50
+      }
+    }
+  loadgen.py: |
+    """Fire-and-forget loadgen: each tenant has a scheduler coroutine that spawns
+    request tasks at the target rps WITHOUT awaiting their completion, so a slow
+    backend cannot throttle the offered load. A pure rate-limit (open-loop)
+    generator, which is what you want for a noisy-neighbor scenario."""
+    import asyncio, json, time
+    from collections import Counter
+    import httpx
+
+    stats: dict[str, Counter] = {}
+    inflight: dict[str, int] = {}
+
+    async def fire(client, target, tenant, sem):
+        async with sem:
+            inflight[tenant] = inflight.get(tenant, 0) + 1
+            try:
+                r = await client.get(target, headers={"X-Tenant-ID": tenant}, timeout=15.0)
+                code = r.status_code
+            except Exception:
+                code = -2
+            finally:
+                inflight[tenant] -= 1
+            stats[tenant][code] += 1
+
+    async def scheduler(client, target, tenant, rps, sem):
+        interval = 1.0 / max(rps, 1)
+        next_t = time.monotonic()
+        while True:
+            asyncio.create_task(fire(client, target, tenant, sem))
+            next_t += interval
+            dt = next_t - time.monotonic()
+            if dt > 0:
+                await asyncio.sleep(dt)
+            else:
+                next_t = time.monotonic()
+
+    async def reporter():
+        while True:
+            await asyncio.sleep(5)
+            parts = []
+            for t, c in sorted(stats.items()):
+                ok  = c.get(200, 0)
+                lim = c.get(429, 0)
+                five = sum(v for k,v in c.items() if isinstance(k, int) and 500 <= k < 600)
+                net = c.get(-2, 0)
+                parts.append(f"{t}: ok={ok} 429={lim} 5xx={five} net_err={net} inflight={inflight.get(t,0)}")
+            print(" | ".join(parts), flush=True)
+
+    async def main():
+        cfg = json.load(open("/cfg/config.json"))
+        target = cfg["target"]; tenants = cfg["tenants"]
+        for t in tenants: stats[t] = Counter()
+        print(f"loadgen starting: target={target} tenants={tenants}", flush=True)
+        # Per-tenant concurrency cap so an unresponsive backend doesn't OOM us.
+        sem = asyncio.Semaphore(500)
+        async with httpx.AsyncClient(http2=False, limits=httpx.Limits(max_connections=400, max_keepalive_connections=200)) as client:
+            tasks = [asyncio.create_task(scheduler(client, target, t, r, sem)) for t, r in tenants.items()]
+            tasks.append(asyncio.create_task(reporter()))
+            await asyncio.gather(*tasks)
+
+    asyncio.run(main())
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: noisy-neighbor
+spec:
+  replicas: 0   # start at 0; scale up when ready to run the scenario
+  selector:
+    matchLabels:
+      app: loadgen
+  template:
+    metadata:
+      labels:
+        app: loadgen
+    spec:
+      containers:
+        - name: loadgen
+          image: python:3.12-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              pip install --quiet httpx==0.27.2 && \
+              python /cfg/loadgen.py
+          volumeMounts:
+            - name: cfg
+              mountPath: /cfg
+          resources:
+            requests: {cpu: "50m", memory: "64Mi"}
+            limits: {cpu: "300m", memory: "256Mi"}
+      volumes:
+        - name: cfg
+          configMap:
+            name: loadgen-config

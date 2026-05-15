@@ -1,0 +1,294 @@
+# Two-collector trace pipeline.
+#
+#   noisy-app (OTel SDK) ─OTLP→  trace-balancer  ─loadbalanced-by-traceID→  gateway
+#                                                                            │
+#                                                                            ├ tail_sampling
+#                                                                            ├ batch
+#                                                                            └ exporters
+#
+# The gateway's tail_sampling processor reads NOISY_TENANT_LIST and HEALTHY_TENANT_LIST
+# from the configmap that the mdai-operator materializes from the MdaiHub CR's set
+# variables. When the noisy_neighbor_firing rule fires, those sets swap members and
+# the next ConfigMap refresh (~60s) causes the sampler to flip its policies.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loadbalancer
+  namespace: mdai
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: loadbalancer-endpointslices-reader
+  namespace: mdai
+rules:
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [endpoints]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loadbalancer-rolebinding
+  namespace: mdai
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: loadbalancer-endpointslices-reader
+subjects:
+  - kind: ServiceAccount
+    name: loadbalancer
+    namespace: mdai
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: trace-balancer
+  namespace: mdai
+  labels:
+    mydecisive.ai/hub-name: mdaihub-noisy-neighbor
+spec:
+  serviceAccount: loadbalancer
+  image: otel/opentelemetry-collector-contrib:0.127.0
+  replicas: 1
+  resources:
+    limits: {memory: "256Mi", cpu: "200m"}
+    requests: {memory: "128Mi", cpu: "100m"}
+  config:
+    receivers:
+      otlp/from_agent:
+        protocols:
+          grpc: {endpoint: "0.0.0.0:4317"}
+          http: {endpoint: "0.0.0.0:4318"}
+
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13133"
+
+    processors:
+      memory_limiter:
+        limit_mib: 200
+        spike_limit_mib: 50
+        check_interval: 1s
+      batch:
+        send_batch_size: 200
+        send_batch_max_size: 1000
+        timeout: 5s
+      deltatocumulative: {}
+
+    exporters:
+      loadbalancing:
+        routing_key: traceID
+        protocol:
+          otlp:
+            compression: gzip
+            tls: {insecure: true}
+        resolver:
+          k8s:
+            service: gateway-collector-headless.mdai
+
+      prometheus:
+        endpoint: "0.0.0.0:8899"
+        metric_expiration: 180m
+        resource_to_telemetry_conversion: {enabled: true}
+
+    connectors:
+      count/service:
+        spans:
+          trace.span.tenant.total:
+            description: Total span count by tenant attribute.
+            attributes:
+              - key: tenant
+          trace.span.service.root:
+            description: Root span count by service.
+            conditions:
+              - 'IsRootSpan()'
+
+    service:
+      telemetry:
+        resource:
+          mdai-logstream: collector
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus: {host: "0.0.0.0", port: 8888}
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp/from_agent]
+          processors: [memory_limiter, batch]
+          exporters: [loadbalancing, count/service]
+        metrics:
+          receivers: [count/service]
+          processors: [deltatocumulative]
+          exporters: [prometheus]
+
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: gateway
+  namespace: mdai
+  labels:
+    mydecisive.ai/hub-name: mdaihub-noisy-neighbor
+spec:
+  managementState: managed
+  image: otel/opentelemetry-collector-contrib:0.127.0
+  replicas: 1
+  resources:
+    limits: {memory: "512Mi", cpu: "300m"}
+    requests: {memory: "256Mi", cpu: "100m"}
+  envFrom:
+    - configMapRef:
+        name: mdaihub-noisy-neighbor-variables
+        optional: true
+  config:
+    receivers:
+      otlp/from_lb:
+        protocols:
+          grpc: {endpoint: "0.0.0.0:4317"}
+
+    extensions:
+      health_check:
+        endpoint: "${env:MY_POD_IP}:13133"
+
+    processors:
+      memory_limiter:
+        limit_mib: 420
+        spike_limit_mib: 80
+        check_interval: 1s
+
+      # The whole point of this lab. Four policies, evaluated in order; first match wins.
+      tail_sampling:
+        decision_wait: 10s
+        policies:
+          # 0. THROTTLE-DROP. A noisy-tenant span that was rejected by our own
+          #    rate-limiter (throttled==true). These 429s are MDAI's mitigation
+          #    working as intended — no diagnostic value — so we keep ~1% as a
+          #    sanity sample and drop the other 99%. This policy is FIRST so it
+          #    wins over noisy-tenant-normal (which would otherwise keep 50% of
+          #    them). The 429 *rate* is still fully visible in metrics
+          #    (app_throttled_total / the Action-1 panel); we just stop paying
+          #    to store the redundant per-request traces.
+          - name: noisy-tenant-throttled-drop
+            type: and
+            and:
+              and_sub_policy:
+                - name: is-noisy-tenant
+                  type: string_attribute
+                  string_attribute:
+                    values:
+                      - ${env:NOISY_TENANT_LIST:-a^}
+                    key: tenant
+                    enabled_regex_matching: true
+                - name: is-throttled
+                  type: ottl_condition
+                  ottl_condition:
+                    error_mode: ignore
+                    span:
+                      - 'attributes["throttled"] == true'
+                - name: keep-1-percent
+                  type: probabilistic
+                  probabilistic:
+                    sampling_percentage: 1
+
+          # 1. KEEP EVERYTHING from a noisy tenant that hit a *genuine* DB error (5xx).
+          #    Deliberately does NOT match 429s — those were handled by policy 0
+          #    above. We match the injected-error attribute our /work handler sets,
+          #    OR a Status.ERROR that is not a throttle.
+          - name: noisy-tenant-errors
+            type: and
+            and:
+              and_sub_policy:
+                - name: is-noisy-tenant
+                  type: string_attribute
+                  string_attribute:
+                    key: tenant
+                    # When NOISY_TENANT_LIST is unset/empty, expand to "a^" — a regex
+                    # that matches no string. Without this, the empty regex matches
+                    # everything and inverts the policy semantics.
+                    values:
+                      - ${env:NOISY_TENANT_LIST:-a^}
+                    enabled_regex_matching: true
+                # Genuine DB failures only. We match the injected-error attribute our
+                # /work handler sets, OR a Status.ERROR that is NOT a throttle (the
+                # second clause excludes 429 spans, which carry throttled==true).
+                - name: is-genuine-error
+                  type: ottl_condition
+                  ottl_condition:
+                    error_mode: ignore
+                    span:
+                      - 'attributes["error.injected"] == true'
+                      - 'status.code == STATUS_CODE_ERROR and attributes["throttled"] != true'
+
+          # 2. Sample 50% of the noisy tenant's non-error traffic (still want context).
+          - name: noisy-tenant-normal
+            type: and
+            and:
+              and_sub_policy:
+                - name: is-noisy-tenant
+                  type: string_attribute
+                  string_attribute:
+                    key: tenant
+                    # When NOISY_TENANT_LIST is unset/empty, expand to "a^" — a regex
+                    # that matches no string. Without this, the empty regex matches
+                    # everything and inverts the policy semantics.
+                    values:
+                      - ${env:NOISY_TENANT_LIST:-a^}
+                    enabled_regex_matching: true
+                - name: probabilistic
+                  type: probabilistic
+                  probabilistic:
+                    sampling_percentage: 50
+
+          # 3. Healthy tenants ride 2%. They were fine before, they're fine now — save the budget.
+          - name: healthy-tenant-sample
+            type: and
+            and:
+              and_sub_policy:
+                - name: is-healthy-tenant
+                  type: string_attribute
+                  string_attribute:
+                    key: tenant
+                    values:
+                      - ${env:HEALTHY_TENANT_LIST:-a^}
+                    enabled_regex_matching: true
+                - name: probabilistic
+                  type: probabilistic
+                  probabilistic:
+                    sampling_percentage: 2
+
+          # 4. Default catch-all for spans without a tenant attribute (e.g., infra).
+          - name: default-sample
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 10
+
+      batch:
+        send_batch_size: 50
+        send_batch_max_size: 200
+        timeout: 10s
+
+    exporters:
+      debug/to_vendor: {}
+
+    service:
+      telemetry:
+        resource:
+          mdai-logstream: collector
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus: {host: "0.0.0.0", port: 8888}
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp/from_lb]
+          processors: [memory_limiter, tail_sampling, batch]
+          exporters: [debug/to_vendor]
