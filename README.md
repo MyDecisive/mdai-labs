@@ -2,7 +2,7 @@
 
 A repository full of reference solutions for getting started with MDAI.
 
-## Automated Install/Uninstall (Cluster + MDAI Dependencies)
+## Automated Install/Uninstall (Cluster + MyDecisive Dependencies)
 
 Optional: In your .bashrc (or equivalent), add this to EOF. If you choose to do this, you can use `mdai` vs. `./cli/mdai.sh` to utlize the cli-like shell script 
 ```
@@ -19,7 +19,7 @@ Run the following to make our install/uninstall script executable.
 chmod +x ./cli/mdai.sh
 ```
 
-You can use the following commands to setup and install your mdai instance locally...
+You can use the following commands to setup and install your SmartHub instance locally...
 
 ```
 ./cli/mdai.sh install
