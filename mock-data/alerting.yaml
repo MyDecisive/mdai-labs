@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-v2
+data:
+  fluentd.conf: |-
+    <source>
+      @type dummy
+      tag dummy
+      rate 50
+      dummy [
+        {"timestamp":"2025-03-25T21:44:11.502571","level":"INFO","mdai_service":"inventory-service","action":"login","message":"Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully Action signup processed successfully","user_id":2887,"transaction_id":474027,"duration":72,"status":"success"},
+        {"timestamp":"2025-03-25T21:56:11.502593","level":"DEBUG","mdai_service":"inventory-service","action":"login","message":"Action inventory-check processed successfully","user_id":6538,"transaction_id":503662,"duration":188,"status":"failure"},
+        {"timestamp":"2025-03-25T22:26:11.502601","level":"ERROR","mdai_service":"payment-service","action":"logout","message":"Action logout processed successfully","user_id":4255,"transaction_id":436167,"duration":137,"status":"failure"},
+        {"timestamp":"2025-03-25T21:43:11.502609","level":"WARN","mdai_service":"user-service","action":"payment","message":"Action login processed successfully","user_id":5466,"transaction_id":446064,"duration":115,"status":"success"},
+        {"timestamp":"2025-03-25T21:53:11.502615","level":"INFO","mdai_service":"user-service","action":"inventory-check","message":"Action inventory-check processed successfully","user_id":6363,"transaction_id":890785,"duration":59,"status":"success"},
+        {"timestamp":"2025-03-25T22:40:11.502700","level":"ERROR","mdai_service":"payment-service","action":"charge","message":"Payment attempt logged with raw cc","cc":"4111111111111111","user_id":9001,"transaction_id":991001,"status":"failure"},
+        {"timestamp":"2025-03-25T22:41:11.502701","level":"WARN","mdai_service":"checkout-service","action":"validate","message":"Improperly masked cc passed through","cc":"3400-0000-0000-009","user_id":9002,"transaction_id":991002,"status":"failure"},
+        {"timestamp":"2025-03-25T22:42:11.502702","level":"INFO","mdai_service":"payment-service","action":"audit","message":"Masked cc logged correctly","cc":"****-****-****-1234","user_id":9003,"transaction_id":991003,"status":"success"},
+        {"timestamp":"2025-03-25T22:43:11.502703","level":"ERROR","mdai_service":"payment-service","action":"charge","message":"Payment charge failed: upstream timeout","user_id":9101,"transaction_id":991101,"duration":41,"status":"failure"},
+        {"timestamp":"2025-03-25T22:44:11.502704","level":"ERROR","mdai_service":"payment-service","action":"refund","message":"Refund failed: insufficient funds","user_id":9102,"transaction_id":991102,"duration":55,"status":"failure"},
+        {"timestamp":"2025-03-25T22:45:11.502705","level":"WARN","mdai_service":"payment-service","action":"audit","message":"Payment latency elevated","user_id":9103,"transaction_id":991103,"duration":310,"status":"success"},
+
+        {"timestamp":"2025-03-25T22:46:11.502706","level":"WARNING","mdai_service":"checkout-service","action":"validate","message":"Checkout validation retries increasing","user_id":9201,"transaction_id":992201,"duration":120,"status":"failure"},
+        {"timestamp":"2025-03-25T22:47:11.502707","level":"WARN","mdai_service":"checkout-service","action":"inventory-check","message":"Checkout inventory-check slow path triggered","user_id":9202,"transaction_id":992202,"duration":205,"status":"success"},
+        {"timestamp":"2025-03-25T22:48:11.502708","level":"ERROR","mdai_service":"checkout-service","action":"submit","message":"Checkout submit failed: downstream 502","user_id":9203,"transaction_id":992203,"duration":32,"status":"failure"},
+
+        {"timestamp":"2025-03-25T22:49:11.502709","level":"INFO","mdai_service":"auth-service","action":"login","message":"Login attempt successful","user_id":9301,"transaction_id":993301,"duration":18,"status":"success"},
+        {"timestamp":"2025-03-25T22:50:11.502710","level":"ERROR","mdai_service":"auth-service","action":"login","message":"Login failed: invalid token signature","user_id":9302,"transaction_id":993302,"duration":9,"status":"failure"},
+        {"timestamp":"2025-03-25T22:51:11.502711","level":"WARN","mdai_service":"auth-service","action":"rate-limit","message":"Auth rate limiting engaged","user_id":9303,"transaction_id":993303,"duration":5,"status":"success"},
+        {"timestamp":"2025-03-25T22:52:11.502712","level":"ERROR","mdai_service":"auth-service","action":"token-verify","message":"Token verification failed: jwk fetch timeout","user_id":9304,"transaction_id":993304,"duration":22,"status":"failure"},
+        {"timestamp":"2025-03-25T22:53:11.502713","level":"ERROR","mdai_service":"payment-service","action":"settlement","message":"Settlement batch failed: database deadlock","user_id":9104,"transaction_id":991104,"duration":67,"status":"failure"},
+
+        {"timestamp":"2025-03-25T22:54:11.502714","level":"ERROR","mdai_service":"inventory-service","action":"reserve","message":"Inventory reserve failed: out of stock","user_id":9401,"transaction_id":994401,"duration":14,"status":"failure"},
+        {"timestamp":"2025-03-25T22:55:11.502715","level":"ERROR","mdai_service":"checkout-service","action":"submit","message":"Checkout submit failed: payment provider 503","user_id":9402,"transaction_id":994402,"duration":19,"status":"failure"},
+
+        {"timestamp":"2025-03-25T22:56:11.502716","level":"ERROR","mdai_service":"user-service","action":"profile-update","message":"Profile update failed: optimistic lock conflict","user_id":9501,"transaction_id":995501,"duration":11,"status":"failure"},
+        {"timestamp":"2025-03-25T22:57:11.502717","level":"ERROR","mdai_service":"catalog-service","action":"search-index","message":"Catalog index update failed: shard unavailable","user_id":9502,"transaction_id":995502,"duration":44,"status":"failure"},
+        {"timestamp":"2025-03-25T22:58:11.502718","level":"ERROR","mdai_service":"shipping-service","action":"rate-quote","message":"Shipping rate quote failed: carrier API 429","user_id":9503,"transaction_id":995503,"duration":8,"status":"failure"},
+        {"timestamp":"2025-03-25T22:59:11.502719","level":"ERROR","mdai_service":"notification-service","action":"send","message":"Notification send failed: smtp rejected","user_id":9504,"transaction_id":995504,"duration":6,"status":"failure"}
+      ]
+    </source>
+    <match dummy>
+      @type copy
+      <store>
+        @type stdout
+      </store>
+      <store>
+        @type forward
+        <server>
+          host gateway-collector.mdai.svc.cluster.local
+          port 8006
+        </server>
+        <buffer>
+          @type memory
+          chunk_limit_size 1m
+          flush_interval 15s
+          retry_max_times 3
+        </buffer>
+      </store>
+    </match>
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluentd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fluentd
+  template:
+    metadata:
+      labels:
+        app: fluentd
+    spec:
+      securityContext:
+        runAsUser: 0
+        fsGroup: 0
+      containers:
+      - name: fluentd
+        image: fluent/fluentd:edge-debian
+        args: ["-c", "/fluentd/etc/fluentd.conf"]  # Ensure Fluentd uses the correct config file
+        volumeMounts:
+        - name: config-volume
+          mountPath: /fluentd/etc
+        - name: varlog
+          mountPath: /var/log
+        resources:
+          limits:
+            memory: 200Mi
+            cpu: 100m
+          requests:
+            memory: 100Mi
+            cpu: 50m
+      volumes:
+      - name: config-volume
+        configMap:
+          name: fluentd-v2
+      - name: varlog
+        hostPath:
+          path: /var/log
