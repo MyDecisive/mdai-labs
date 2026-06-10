@@ -16,6 +16,7 @@ mkdir -p "${SANDBOX}/bin" \
          "${SANDBOX}/otel" \
          "${SANDBOX}/mock-data" \
          "${SANDBOX}/extras" \
+         "${SANDBOX}/experiments/demo" \
          "${SANDBOX}/synthetics"
 cat >"${SANDBOX}/bin/kubectl" <<'KUB'
 #!/usr/bin/env bash
@@ -130,6 +131,26 @@ cat >"${SANDBOX}/aws_secret.sh" <<'AWS'
 echo "creating secret (stub)"
 AWS
 chmod +x "${SANDBOX}/aws_secret.sh"
+cat >"${SANDBOX}/extras/extra.yaml" <<'EXTRA'
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: extra }
+EXTRA
+cat >"${SANDBOX}/experiments/demo/otel.yaml" <<'EOTEL'
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: experiment-otel }
+EOTEL
+cat >"${SANDBOX}/experiments/demo/hub.yaml" <<'EHUB'
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: experiment-hub }
+EHUB
+cat >"${SANDBOX}/experiments/demo/mock_data.yaml" <<'EDATA'
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: experiment-data }
+EDATA
 run_cli_rc() {
   local out="$1"; shift
   set +e

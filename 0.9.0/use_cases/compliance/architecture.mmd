@@ -1,0 +1,17 @@
+flowchart LR
+  logs[Compliance log generators]
+  fluentd[Fluentd]
+  hub[MDAI Hub compliance variables]
+  vars[mdaihub-compliance variables ConfigMap]
+  gateway[OTel gateway collector]
+  router[Routing connector]
+  filter[Non-critical logs path]
+  compliance[Compliance logs path]
+
+  logs --> fluentd
+  fluentd -->|Fluent Forward| gateway
+  hub --> vars
+  vars -->|NON_CRIT_LEVELS CRIT_LEVELS CRIT_SERVICES| gateway
+  gateway --> router
+  router -->|non-critical levels| filter
+  router -->|critical levels or services| compliance

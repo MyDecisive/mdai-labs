@@ -73,6 +73,8 @@ USE-CASES
                       use-case compliance --version 0.8.6
                       use-case pii --hub ./use-cases/pii/0.8.6/hub.yaml --otel ./use-cases/pii/0.8.6/otel.yaml
                       use-case compliance --workflow basic
+  experiment NAME [--delete] [--hub FILE] [--otel FILE] [--data FILE] [--apply FILE ...]
+                                 Apply an experiment from ./experiments/NAME
 
 KUBECTL HELPERS
   apply FILE                     kubectl apply -f FILE -n $NAMESPACE
@@ -85,8 +87,11 @@ MAINTENANCE
 REPORTING / DOCS
   report [--format table|json|yaml] [--out FILE]
                                  Show what’s installed
+  doctor                         Check local OS platform and required tools
   gen-usage [--out FILE] [--examples FILE] [--section "..."]
                                  Generate usage.md
+  validate-docs                  Validate README alias and documented commands
+  test                           Run CLI tests
 
 DEPRECATED (prefer `use-case`)
   compliance [--version VER] [--delete] [--otel FILE --hub FILE]
@@ -170,6 +175,8 @@ USE-CASES
                       use-case compliance --version 0.8.6
                       use-case pii --hub ./use-cases/pii/0.8.6/hub.yaml --otel ./use-cases/pii/0.8.6/otel.yaml
                       use-case compliance --workflow basic
+  experiment NAME [--delete] [--hub FILE] [--otel FILE] [--data FILE] [--apply FILE ...]
+                                 Apply an experiment from ./experiments/NAME
 
 KUBECTL HELPERS
   apply FILE                     kubectl apply -f FILE -n $NAMESPACE
@@ -182,8 +189,11 @@ MAINTENANCE
 REPORTING / DOCS
   report [--format table|json|yaml] [--out FILE]
                                  Show what’s installed
+  doctor                         Check local OS platform and required tools
   gen-usage [--out FILE] [--examples FILE] [--section "..."]
                                  Generate usage.md
+  validate-docs                  Validate README alias and documented commands
+  test                           Run CLI tests
 
 DEPRECATED (prefer `use-case`)
   compliance [--version VER] [--delete] [--otel FILE --hub FILE]
@@ -229,4 +239,3 @@ HISTORY
 | DRY_RUN | false |  |
 | VERBOSE | false |  |
 | INSTALL_CERT_MANAGER | true |  |
-

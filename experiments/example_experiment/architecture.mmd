@@ -1,0 +1,16 @@
+flowchart LR
+  generators[Synthetic trace generators]
+  balancer[Trace balancer collector]
+  metrics[Trace count metrics]
+  prometheus[Prometheus alerts]
+  hub[MDAI Hub variables and rules]
+  gateway[Gateway collector tail sampling]
+  vendor[Trace destination]
+
+  generators -->|OTLP traces| balancer
+  balancer -->|load-balanced traces| gateway
+  balancer -->|service trace counts| metrics
+  metrics --> prometheus
+  prometheus -->|firing and resolved alerts| hub
+  hub -->|HIGH/MEDIUM/LOW volume service lists| gateway
+  gateway -->|sampled traces| vendor
