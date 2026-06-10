@@ -96,6 +96,47 @@ add_values() { HELM_VALUES+=("--values" "$1"); }
 add_set()    { HELM_SET+=("--set" "$1"); }
 add_extra()  { HELM_EXTRA+=("$1"); }
 
+host_arch_raw() {
+  printf "%s" "${MDAI_UNAME_M:-$(uname -m)}"
+}
+
+host_os_raw() {
+  printf "%s" "${MDAI_UNAME_S:-$(uname -s)}"
+}
+
+normalize_os() {
+  case "$1" in
+    Linux) printf "linux" ;;
+    Darwin) printf "macos" ;;
+    *) printf "unsupported" ;;
+  esac
+}
+
+host_os() {
+  normalize_os "$(host_os_raw)"
+}
+
+normalize_arch() {
+  case "$1" in
+    x86_64|amd64) printf "amd64" ;;
+    arm64|aarch64) printf "arm64" ;;
+    *) printf "unsupported" ;;
+  esac
+}
+
+host_arch() {
+  normalize_arch "$(host_arch_raw)"
+}
+
+ensure_supported_platform() {
+  local os
+  os="$(host_os)"
+  case "$os" in
+    linux|macos) ;;
+    *) err "Unsupported operating system: $(host_os_raw). Supported operating systems: Linux, macOS."; exit 1 ;;
+  esac
+}
+
 # Resolve a default manifest path, using versioned directory if available.
 # Usage: default_file <root_dir> <version> <relative_path_or_filename>
 default_file() {
@@ -315,12 +356,55 @@ helm_get_values_json() {
 # Actions (small, task-oriented)
 # ========================
 act_check_tools() {
+  ensure_supported_platform
   ensure_cmd docker
   ensure_cmd kind
   ensure_cmd kubectl
   ensure_cmd helm
   docker info >/dev/null 2>&1 || { err "Docker is not running."; exit 1; }
   ok "Prerequisites OK"
+}
+
+cmd_doctor() {
+  local arch raw os os_raw missing=0
+  os_raw="$(host_os_raw)"
+  os="$(host_os)"
+  raw="$(host_arch_raw)"
+  arch="$(host_arch)"
+
+  echo "MDAI local environment"
+  echo "  Operating system : ${os_raw} (${os})"
+  echo "  CPU architecture : ${raw} (${arch})"
+
+  case "$os" in
+    linux|macos) echo "  OS support       : supported" ;;
+    *) echo "  OS support       : unsupported"; missing=1 ;;
+  esac
+
+  case "$arch" in
+    amd64|arm64) echo "  Architecture     : common" ;;
+    *) echo "  Architecture     : unverified" ;;
+  esac
+
+  for tool in docker kind kubectl helm; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      echo "  ${tool}           : found"
+    else
+      echo "  ${tool}           : missing"
+      missing=1
+    fi
+  done
+
+  if command -v docker >/dev/null 2>&1; then
+    if docker info >/dev/null 2>&1; then
+      echo "  Docker daemon    : running"
+    else
+      echo "  Docker daemon    : not running"
+      missing=1
+    fi
+  fi
+
+  return "$missing"
 }
 
 act_create_or_reuse_kind() {
@@ -378,19 +462,24 @@ act_install_mdai_stack() {
   # example: turn off the s3 log reader service
   # add_set "mdai-s3-logs-reader.enabled=false"
 
-  # create/update the ConfigMap WITHOUT last-applied annotation
-  kubectl -n mdai create configmap mdai-grafana-dashboards \
-    --from-file=mdai-dashboard.json=files/dashboards/mdai-dashboard.json \
-    --from-file=mdai-resource-use.json=files/dashboards/mdai-resource-use.json \
-    --from-file=otel-collector.json=files/dashboards/otel-collector.json \
-    --from-file=mdai-cluster-usage.json=files/dashboards/mdai-cluster-usage.json \
-    --from-file=mdai-audit-streams.json=files/dashboards/mdai-audit-streams.json \
-    --from-file=controller-runtime-metrics.json=files/dashboards/controller-runtime-metrics.json \
-    --from-file=nats.json=files/dashboards/nats.json \
-    --dry-run=client -o yaml \
-  | kubectl -n mdai apply --server-side -f -
+  if "$DRY_RUN"; then
+    echo "+ kubectl -n mdai create configmap mdai-grafana-dashboards --from-file=<dashboards> --dry-run=client -o yaml | kubectl -n mdai apply --server-side -f -"
+    echo '+ kubectl -n mdai label configmap mdai-grafana-dashboards grafana_dashboard="1" --overwrite'
+  else
+    # create/update the ConfigMap WITHOUT last-applied annotation
+    kubectl -n mdai create configmap mdai-grafana-dashboards \
+      --from-file=mdai-dashboard.json=files/dashboards/mdai-dashboard.json \
+      --from-file=mdai-resource-use.json=files/dashboards/mdai-resource-use.json \
+      --from-file=otel-collector.json=files/dashboards/otel-collector.json \
+      --from-file=mdai-cluster-usage.json=files/dashboards/mdai-cluster-usage.json \
+      --from-file=mdai-audit-streams.json=files/dashboards/mdai-audit-streams.json \
+      --from-file=controller-runtime-metrics.json=files/dashboards/controller-runtime-metrics.json \
+      --from-file=nats.json=files/dashboards/nats.json \
+      --dry-run=client -o yaml \
+    | kubectl -n mdai apply --server-side -f -
 
-  kubectl -n mdai label configmap mdai-grafana-dashboards grafana_dashboard="1" --overwrite
+    kubectl -n mdai label configmap mdai-grafana-dashboards grafana_dashboard="1" --overwrite
+  fi
 
   helm_install_or_upgrade_mdai
 }
@@ -665,13 +754,15 @@ cmd_report() {
   done
 
   case "$fmt" in
-    table)  report_table > "${out:-/dev/stdout}" ;;
-    json)   report_json  > "${out:-/dev/stdout}" ;;
-    yaml)   report_yaml  > "${out:-/dev/stdout}" ;;
+    table)  if [[ -n "$out" ]]; then report_table > "$out"; else report_table; fi ;;
+    json)   if [[ -n "$out" ]]; then report_json > "$out"; else report_json; fi ;;
+    yaml)   if [[ -n "$out" ]]; then report_yaml > "$out"; else report_yaml; fi ;;
     *) err "report: unsupported --format '${fmt}' (use table|json|yaml)"; return 1 ;;
   esac
 
-  [[ -n "$out" ]] && ok "Report written to ${out}"
+  if [[ -n "$out" ]]; then
+    ok "Report written to ${out}"
+  fi
 }
 
 # Defaults to ./mdai-usage-gen.sh, but you can override with MDAI_USAGE_GEN=/path/to/script
@@ -694,6 +785,43 @@ cmd_gen_usage_external() {
   fi
 
   bash "$GEN" "$@"
+}
+
+cmd_validate_docs() {
+  local root_dir readme help_output command
+  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  readme="${root_dir}/README.md"
+
+  ensure_file "$readme"
+
+  if ! grep -Fq 'export MDAI_LABS_DIR="$HOME/path/to/mdai-labs"' "$readme"; then
+    err "README.md is missing the documented MDAI_LABS_DIR setup."
+    return 1
+  fi
+
+  if ! grep -Fq 'alias mdai=' "$readme" || ! grep -Fq '/cli/mdai.sh' "$readme"; then
+    err "README.md is missing the documented mdai alias for cli/mdai.sh."
+    return 1
+  fi
+
+  help_output="$(usage)"
+  for command in install delete clean logs hub collector fluentd; do
+    if ! grep -Eq "^[[:space:]]+${command}([[:space:]]|$)" <<<"$help_output"; then
+      err "CLI help is missing documented command: ${command}"
+      return 1
+    fi
+  done
+
+  ok "README alias and documented CLI commands validated."
+}
+
+cmd_test() {
+  local root_dir runner
+  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  runner="${root_dir}/cli/tests/run.sh"
+
+  ensure_file "$runner"
+  bash "$runner"
 }
 
 # ========================
@@ -855,6 +983,11 @@ cmd_fluentd()    {
   done
   act_forward_fluentd "$values"
 }
+
+cmd_compliance() { cmd_use_case compliance "$@"; }
+cmd_df()         { cmd_use_case data_filtration "$@"; }
+cmd_pii()        { cmd_use_case pii "$@"; }
+
 cmd_aws_secret() {
   act_check_tools_and_context
   local script="./aws/aws_secret_from_env.sh"
@@ -955,6 +1088,8 @@ USE-CASES
                       use-case compliance --version 0.8.6
                       use-case pii --hub ./use-cases/pii/0.8.6/hub.yaml --otel ./use-cases/pii/0.8.6/otel.yaml
                       use-case compliance --workflow basic
+  experiment NAME [--delete] [--hub FILE] [--otel FILE] [--data FILE] [--apply FILE ...]
+                                 Apply an experiment from ./experiments/NAME
 
 KUBECTL HELPERS
   apply FILE                     kubectl apply -f FILE -n $NAMESPACE
@@ -967,8 +1102,11 @@ MAINTENANCE
 REPORTING / DOCS
   report [--format table|json|yaml] [--out FILE]
                                  Show what’s installed
+  doctor                         Check local OS platform and required tools
   gen-usage [--out FILE] [--examples FILE] [--section "..."]
                                  Generate usage.md
+  validate-docs                  Validate README alias and documented commands
+  test                           Run CLI tests
 
 DEPRECATED (prefer `use-case`)
   compliance [--version VER] [--delete] [--otel FILE --hub FILE]
@@ -1007,7 +1145,16 @@ parse_trailing_globals() {
       --chart-repo)        HELM_REPO_URL="$2"; shift 2 ;;
       --chart-name)        HELM_CHART_NAME="$2"; shift 2 ;;
       --chart-version)     HELM_CHART_VERSION="$2"; shift 2 ;;
-      --values)            add_values "$2"; shift 2 ;;
+      --values)
+        if [[ "${COMMAND:-}" == "fluentd" ]]; then
+          out+=("$1" "$2")
+          had_out=true
+          shift 2
+        else
+          add_values "$2"
+          shift 2
+        fi
+        ;;
       --set)               add_set "$2"; shift 2 ;;
       --helm-extra)        add_extra "$2"; shift 2 ;;
       --cert-manager-url)  CERT_MANAGER_URL="$2"; shift 2 ;;
@@ -1055,7 +1202,7 @@ parse_globals() {
       --verbose)           VERBOSE=true; shift ;;
       -h|--help)           usage; exit 0 ;;
       --)                  shift; break ;;
-      install|install_deps|install_mdai|upgrade|clean|delete|apply|delete_file|logs|hub|collector|fluentd|aws_secret|mdai_monitor|compliance|df|pii|report|gen-usage|use_case|use-case)
+      install|install_deps|install_mdai|upgrade|clean|delete|apply|delete_file|logs|hub|collector|fluentd|aws_secret|mdai_monitor|compliance|df|pii|report|doctor|gen-usage|validate-docs|test|use_case|use-case|experiment|experiments|use-case-history|use_case_history)
         seen_cmd="$1"; shift; break ;;
       *) err "Unknown flag or command: $1"; usage; exit 1 ;;
     esac
@@ -1109,12 +1256,20 @@ main() {
     fluentd)         call_with_cmd_args cmd_fluentd ;;
     aws_secret)      call_with_cmd_args cmd_aws_secret ;;
     mdai_monitor)    call_with_cmd_args cmd_mdai_mon ;;
+    compliance)      call_with_cmd_args cmd_compliance ;;
+    df)              call_with_cmd_args cmd_df ;;
+    pii)             call_with_cmd_args cmd_pii ;;
     use_case)        call_with_cmd_args cmd_use_case ;;
     use-case)        call_with_cmd_args cmd_use_case ;;
+    experiment)      call_with_cmd_args cmd_experiment ;;
+    experiments)     call_with_cmd_args cmd_experiment ;;
     use-case-history) call_with_cmd_args cmd_use_case_history ;;
     use_case_history) call_with_cmd_args cmd_use_case_history ;;
     report)          call_with_cmd_args cmd_report ;;
+    doctor)          cmd_doctor ;;
     gen-usage)       call_with_cmd_args cmd_gen_usage_external ;;
+    validate-docs)   cmd_validate_docs ;;
+    test)            cmd_test ;;
     *) err "Unknown command: ${COMMAND:-}"; usage; exit 1 ;;
   esac
 }
@@ -1329,6 +1484,66 @@ cmd_use_case() {
     if ((${#extras[@]})); then for f in "${extras[@]}"; do k_apply "$f"; done; fi
     ok "use-case '${case_name}': applied"
     uc_track "apply" "$case_name" "ok" "$version" "$WORKFLOW" "$hub_f" "$otel_f" "$data_f"
+  fi
+}
+
+cmd_experiment() {
+  act_check_tools_and_context
+  local experiment_name="${1:-}"; shift || true
+  if [[ -z "$experiment_name" ]]; then
+    err "experiment: missing experiment name"
+    return 1
+  fi
+
+  local DO_DELETE=false
+  local hub_f="" otel_f="" data_f=""
+  local -a extras=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --hub)     shift; hub_f="${1:?}"; shift ;;
+      --otel)    shift; otel_f="${1:?}"; shift ;;
+      --data)    shift; data_f="${1:?}"; shift ;;
+      --apply)   shift; extras+=("${1:?}"); shift ;;
+      --delete)  DO_DELETE=true; shift ;;
+      --remove)  DO_DELETE=true; shift ;;
+      --version) err "experiment: --version is not supported; experiments use the latest hub version"; return 1 ;;
+      --) shift; break ;;
+      *) err "experiment: unknown flag '$1'"; return 1 ;;
+    esac
+  done
+
+  local experiment_dir="./experiments/${experiment_name}"
+  [[ -z "$otel_f" ]] && otel_f="${experiment_dir}/otel.yaml"
+  [[ -z "$hub_f" ]] && hub_f="${experiment_dir}/hub.yaml"
+
+  if [[ -z "$data_f" ]]; then
+    if [[ -f "${experiment_dir}/mock_data.yaml" ]]; then
+      data_f="${experiment_dir}/mock_data.yaml"
+    elif [[ -f "${experiment_dir}/mock-data.yaml" ]]; then
+      data_f="${experiment_dir}/mock-data.yaml"
+    fi
+  fi
+
+  if [[ ! -f "$otel_f" || ! -f "$hub_f" ]]; then
+    err "experiment: expected ${experiment_dir}/otel.yaml and ${experiment_dir}/hub.yaml. Try --hub and/or --otel."
+    return 1
+  fi
+
+  ns_ensure
+
+  if $DO_DELETE; then
+    k_delete "$otel_f"
+    k_delete "$hub_f"
+    if [[ -n "$data_f" && -f "$data_f" ]]; then k_delete -n synthetics "$data_f" || true; fi
+    if ((${#extras[@]})); then for f in "${extras[@]}"; do k_delete "$f" || true; done; fi
+    ok "experiment '${experiment_name}': deleted"
+  else
+    k_apply "$otel_f"
+    k_apply "$hub_f"
+    if [[ -n "$data_f" && -f "$data_f" ]]; then k_apply -n synthetics "$data_f"; fi
+    if ((${#extras[@]})); then for f in "${extras[@]}"; do k_apply "$f"; done; fi
+    ok "experiment '${experiment_name}': applied"
   fi
 }
 

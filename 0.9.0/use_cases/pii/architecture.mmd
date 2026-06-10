@@ -1,0 +1,23 @@
+flowchart LR
+  logs[PII log generators]
+  fluentd[Fluentd]
+  hub[MDAI Hub PII variables]
+  vars[mdaihub-pii variables ConfigMap]
+  gateway[OTel gateway collector]
+  strategy[PII processors]
+  output[Sanitized debug output]
+
+  logs --> fluentd
+  fluentd -->|Fluent Forward| gateway
+  hub --> vars
+  vars -->|regex templates and field sets| gateway
+  gateway --> strategy
+  strategy -->|scrub redact or hash| output
+
+  subgraph Dynamic variants
+    single[singlevar credit card scrub]
+    multi[multivar email cc phone address ssn name]
+  end
+
+  vars --> single
+  vars --> multi

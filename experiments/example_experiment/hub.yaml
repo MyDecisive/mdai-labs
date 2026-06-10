@@ -1,0 +1,132 @@
+apiVersion: hub.mydecisive.ai/v1
+kind: MdaiHub
+metadata:
+  labels:
+    app.kubernetes.io/name: mdai-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: mdaihub-ts
+  namespace: mdai
+spec:
+  variables:
+    - key: high_volume_service_list
+      serializeAs:
+        - name: "HIGH_VOLUME_SERVICE_LIST"
+          transformers:
+            - type: join
+              join:
+                delimiter: ","
+      dataType: set
+    - key: medium_volume_service_list
+      serializeAs:
+        - name: "MEDIUM_VOLUME_SERVICE_LIST"
+          transformers:
+            - type: join
+              join:
+                delimiter: ","
+      dataType: set
+    - key: low_volume_service_list
+      serializeAs:
+        - name: "LOW_VOLUME_SERVICE_LIST"
+          transformers:
+            - type: join
+              join:
+                delimiter: ","
+      dataType: set
+    - key: alerting_data_type
+      dataType: string
+      serializeAs:
+        - name: "ALERTING_DATA_TYPE"
+    - key: alerting_triggered
+      dataType: boolean
+      serializeAs:
+        - name: "ALERT_TRIGGERED"
+
+  prometheusAlerts:
+    - name: high_volume_threshold
+      expr: 'sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 2000'
+      severity: warning
+      for: 1m
+      keep_firing_for: 1m
+    - name: medium_volume_threshold
+      expr: '2000 > sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 1000'
+      severity: warning
+      for: 1m
+      keep_firing_for: 1m
+    - name: low_volume_threshold
+      expr: '1000 > sum(increase(trace_span_service_total{service_name!=""}[5m])) by (service_name) >= 200'
+      severity: warning
+      for: 1m
+      keep_firing_for: 1m
+
+  rules:
+    # HIGHEST VOLUME SERVICES
+    - name: high_volume_threshold_resolved
+      when:
+        alertName: high_volume_threshold
+        status: resolved
+      then:
+        - removeFromSet:
+            set: high_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+    - name: high_volume_threshold_firing
+      when:
+        alertName: high_volume_threshold
+        status: firing
+      then:
+        - addToSet:
+            set: high_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+        - setVariable:
+            scalar: alerting_data_type
+            value: ${trigger:payload.labels.data_type}
+        - setVariable:
+            scalar: alerting_triggered
+            value: "true"
+
+    # MEDIUM VOLUME SERVICES
+    - name: medium_volume_threshold_resolved
+      when:
+        alertName: medium_volume_threshold
+        status: resolved
+      then:
+        - removeFromSet:
+            set: medium_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+    - name: medium_volume_threshold_firing
+      when:
+        alertName: medium_volume_threshold
+        status: firing
+      then:
+        - addToSet:
+            set: medium_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+        - setVariable:
+            scalar: alerting_data_type
+            value: ${trigger:payload.labels.data_type}
+        - setVariable:
+            scalar: alerting_triggered
+            value: "true"
+
+    # LOW VOLUME SERVICES
+    - name: low_volume_threshold_resolved
+      when:
+        alertName: low_volume_threshold
+        status: resolved
+      then:
+        - removeFromSet:
+            set: low_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+    - name: low_volume_threshold_firing
+      when:
+        alertName: low_volume_threshold
+        status: firing
+      then:
+        - addToSet:
+            set: low_volume_service_list
+            value: ${trigger:payload.labels.service_name}
+        - setVariable:
+            scalar: alerting_data_type
+            value: ${trigger:payload.labels.data_type}
+        - setVariable:
+            scalar: alerting_triggered
+            value: "true"

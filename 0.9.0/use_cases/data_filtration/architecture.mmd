@@ -1,0 +1,20 @@
+flowchart LR
+  logs[Log generators]
+  fluentd[Fluentd]
+  gateway[OTel gateway collector]
+  observer[MDAI observer]
+  metrics[Service volume metrics]
+  prometheus[Prometheus alerts]
+  hub[MDAI Hub service_list]
+  vars[mdaihub-ddf variables ConfigMap]
+  filtered[Filtered customer pipeline]
+
+  logs --> fluentd
+  fluentd -->|Fluent Forward| gateway
+  gateway -->|received and exported metrics| observer
+  observer --> metrics
+  metrics --> prometheus
+  prometheus -->|top talker/listener alerts| hub
+  hub --> vars
+  vars -->|SERVICE_LIST_REGEX| gateway
+  gateway -->|matching noisy services| filtered
