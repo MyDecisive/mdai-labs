@@ -6,6 +6,10 @@ A repository full of reference solutions for getting started with MDAI.
 
 We welcome fixes, examples, and documentation improvements. Before opening a pull request, please read [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, testing guidance, and review expectations.
 
+<a href="https://github.com/mydecisive/mdai-labs/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=mydecisive/mdai-labs&cache=bust2" />
+</a>
+
 ## Automated Install/Uninstall (Cluster + MyDecisive Dependencies)
 
 Optional: In your .bashrc (or equivalent), add this to EOF. If you choose to do this, you can use `mdai` instead of `./cli/mdai.sh` to utilize the CLI-like shell script.
