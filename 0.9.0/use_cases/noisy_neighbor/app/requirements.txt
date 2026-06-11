@@ -1,0 +1,13 @@
+setuptools<81  # pkg_resources removed in setuptools 81 — OTel instrumentation still depends on it
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+asyncpg==0.30.0
+prometheus-client==0.21.0
+pydantic==2.9.2
+
+# Tracing
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp-proto-grpc==1.27.0
+opentelemetry-instrumentation-fastapi==0.48b0
+opentelemetry-instrumentation-asyncpg==0.48b0

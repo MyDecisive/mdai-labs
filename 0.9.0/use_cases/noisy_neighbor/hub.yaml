@@ -1,0 +1,166 @@
+apiVersion: hub.mydecisive.ai/v1
+kind: MdaiHub
+metadata:
+  name: mdaihub-noisy-neighbor
+  namespace: mdai
+  labels:
+    app.kubernetes.io/name: mdai-operator
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  config:
+    evaluation_interval: 15s
+
+  variables:
+    # Map of tenant -> rps_limit, used by the in-app middleware (set via callWebhook).
+    - key: rate_limited_tenants
+      dataType: map
+      storageType: mdai-valkey
+      type: manual
+      serializeAs:
+        - name: RATE_LIMITED_TENANTS_JSON
+
+    # Scalar pressure flag; useful for dashboards / debugging.
+    - key: db_under_pressure
+      dataType: boolean
+      storageType: mdai-valkey
+      type: manual
+      serializeAs:
+        - name: DB_UNDER_PRESSURE
+
+    # Tenants currently flagged as noisy. Drives the tail sampler's high-fidelity policies.
+    - key: noisy_tenant_list
+      dataType: set
+      storageType: mdai-valkey
+      type: manual
+      serializeAs:
+        - name: NOISY_TENANT_LIST
+          transformers:
+            - type: join
+              join:
+                delimiter: "|"
+
+    # Tenants currently considered healthy. Pre-populated at scenario start via SADD.
+    # Drives the tail sampler's budget-preserving policy.
+    - key: healthy_tenant_list
+      dataType: set
+      storageType: mdai-valkey
+      type: manual
+      serializeAs:
+        - name: HEALTHY_TENANT_LIST
+          transformers:
+            - type: join
+              join:
+                delimiter: "|"
+
+  prometheusAlerts:
+    # Pressure signal. In this lab the workload is connection-bound (each /work
+    # request holds a pooled Postgres connection across pg_sleep calls), so the
+    # connection-saturation leg is what actually fires. The cache-hit leg is kept
+    # as a generic template but won't move here — the app does no buffer-read I/O.
+    # The "DB failure" story on the dashboard is carried by injected 5xx errors.
+    - name: db_pressure
+      severity: warning
+      for: 30s
+      keep_firing_for: 90s
+      expr: |
+        (
+          sum(pg_stat_database_blks_hit) /
+          clamp_min(sum(pg_stat_database_blks_hit) + sum(pg_stat_database_blks_read), 1)
+          < 0.7
+        )
+        or
+        (
+          sum(pg_stat_activity_count) /
+          on() group_left() max(pg_settings_max_connections)
+          > 0.2
+        )
+
+    # Dominance: one tenant holds >50% of *active* per-tenant connections AND db is under pressure.
+    - name: noisy_neighbor_detected
+      severity: critical
+      for: 30s
+      keep_firing_for: 90s
+      expr: |
+        (
+          max by (tenant) (db_connections_per_tenant)
+          /
+          on() group_left() clamp_min(sum(db_connections_per_tenant), 1)
+          > 0.5
+        )
+        and on()
+        (
+          ALERTS{alertname="db_pressure",alertstate="firing"} == 1
+        )
+
+  rules:
+    - name: noisy_neighbor_firing
+      when:
+        alertName: noisy_neighbor_detected
+        status: firing
+      then:
+        # 1. Hard corrective: cap the noisy tenant at the app middleware (sub-second propagation).
+        - addToMap:
+            map: rate_limited_tenants
+            key: ${trigger:payload.labels.tenant}
+            value: "5"
+        - callWebhook:
+            url:
+              value: http://noisy-app.noisy-neighbor.svc.cluster.local:8080/admin/rate-limits
+            method: POST
+            templateRef: jsonTemplate
+            payloadTemplate:
+              value: '{"tenant":"${trigger:payload.labels.tenant}","rps":${template:rps}}'
+            templateValues:
+              rps: "5"
+        # 2. Diagnostic tuning: move the tenant from healthy → noisy set.
+        # The tail sampler reads these sets via env vars (~60s ConfigMap refresh lag),
+        # bumping noisy-tenant sampling up and healthy-tenant sampling down.
+        - addToSet:
+            set: noisy_tenant_list
+            value: ${trigger:payload.labels.tenant}
+        - removeFromSet:
+            set: healthy_tenant_list
+            value: ${trigger:payload.labels.tenant}
+
+    - name: noisy_neighbor_resolved
+      when:
+        alertName: noisy_neighbor_detected
+        status: resolved
+      then:
+        # Symmetric inverse — lift the limit, return tenant to the healthy set.
+        - removeFromMap:
+            map: rate_limited_tenants
+            key: ${trigger:payload.labels.tenant}
+        - callWebhook:
+            url:
+              value: http://noisy-app.noisy-neighbor.svc.cluster.local:8080/admin/rate-limits
+            method: POST
+            templateRef: jsonTemplate
+            payloadTemplate:
+              value: '{"tenant":"${trigger:payload.labels.tenant}","rps":${template:rps}}'
+            templateValues:
+              rps: "0"
+        - removeFromSet:
+            set: noisy_tenant_list
+            value: ${trigger:payload.labels.tenant}
+        - addToSet:
+            set: healthy_tenant_list
+            value: ${trigger:payload.labels.tenant}
+
+    - name: db_pressure_firing
+      when:
+        alertName: db_pressure
+        status: firing
+      then:
+        - setVariable:
+            scalar: db_under_pressure
+            value: "true"
+
+    - name: db_pressure_resolved
+      when:
+        alertName: db_pressure
+        status: resolved
+      then:
+        - setVariable:
+            scalar: db_under_pressure
+            value: "false"
