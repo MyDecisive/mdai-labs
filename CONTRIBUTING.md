@@ -37,7 +37,7 @@ If you configured the README alias, use `mdai` in place of `./cli/mdai.sh`.
 - Keep example manifests usable across typical Kubernetes environments. If an example requires provider-specific settings, make that dependency clear.
 - Use container images that run on common Linux and macOS local development setups.
 - You may modify versioned `use_cases` or `platform` directories when maintaining existing versioned examples.
-- Put new experiences under `experiments/`. Experiments use the latest hub version and should not be versioned.
+- Put new labs under `experiments/`. Experiments use the latest hub version and should not be versioned.
 
 Use this structure for new experiments:
 
